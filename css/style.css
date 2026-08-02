@@ -273,18 +273,30 @@ body {
    HERO
 ----------------------------------------- */
 .hero {
+  /* No overflow: hidden here anymore (it clipped .hero__pin the moment
+     .hero's own 100vh box scrolled past — see js/main.js's comment on
+     heroFreezeScrollY). That clip point was tuned for the old design
+     where .about's full-bleed opaque background reliably reached that
+     same screen position at roughly the same time. Now that About is a
+     narrower inset panel with its own separate freeze timing, the two
+     didn't line up — the text was vanishing into empty (swirl-only)
+     space before the panel visually arrived, i.e. an invisible cutoff
+     unrelated to anything on screen. Removing the clip lets the frozen
+     .hero__pin content (held in place by transform, not layout, so it
+     never affects document height) simply sit there indefinitely;
+     .about__pin — later in the DOM, so it always paints on top
+     wherever they visually overlap — is what actually covers/overrides
+     it now, exactly like the ask: a visible object doing the covering,
+     not an invisible boundary. */
   position: relative;
-  overflow: hidden;
 }
 
 .hero__pin {
   /* No position: sticky/fixed/absolute at all — js/main.js applies a
      continuous `transform: translateY(scrollY * 0.4)` here, so the
-     hero visual scrolls at 40% of normal speed. .hero's `overflow:
-     hidden` clips it to one viewport height while it lags behind;
-     .about (plain, untouched, normal 1x scroll speed) catches up and
-     rides over it. Matches midu.design's own implementation, which
-     uses this exact technique rather than sticky positioning. */
+     hero visual scrolls at 40% of normal speed, then holds/freezes.
+     Matches midu.design's own implementation, which uses this exact
+     technique rather than sticky positioning. */
   position: relative;
   overflow: hidden;
   height: 100vh;
@@ -296,7 +308,27 @@ body {
      level, behind everything) needs to show through the hero, not get
      hidden behind an opaque fallback. */
   text-align: center;
-  isolation: isolate;
+  /* mix-blend-mode: difference lives HERE now, not on .hero__name/role/
+     tagline individually (see those rules below) — moved after the
+     .site-swirl trial broke text inversion. Root cause: the JS-applied
+     `transform: translateY(...)` on this element (needed for the drag/
+     freeze scroll effect) makes .hero__pin establish its own stacking
+     context — same as `isolation: isolate` would, but it's an inherent
+     side effect of `transform` itself (confirmed by testing: clearing
+     an active transform restored inversion; will-change had nothing to
+     do with it). Any mix-blend-mode on a descendant of a transformed
+     element can only blend against OTHER descendants painted inside
+     that same stacking context — it can never reach .site-swirl once
+     the swirl lives outside .hero__pin. Putting the blend-mode on the
+     transformed element itself sidesteps the problem entirely: it's
+     evaluated at the point .hero__pin composites into ITS OWN parent
+     (.hero, which stays untransformed), so it correctly blends the
+     whole flattened pin — text plus .hero__grain's own overlay blend on
+     top of it — against .site-swirl/.site-scanlines as one unit. Since
+     the rest of the pin's own box is transparent, only the painted
+     text/grain pixels are actually affected — visually equivalent to
+     blending the text alone. */
+  mix-blend-mode: difference;
   will-change: transform;
 }
 
@@ -380,14 +412,12 @@ body {
   font-weight: 700;
   line-height: 1.1;
   color: #ffffff;
-  mix-blend-mode: difference;
 }
 
 .hero__role {
   margin-top: var(--space-sm);
   font-size: clamp(1rem, 2.5vw, 1.25rem);
   color: #ffffff;
-  mix-blend-mode: difference;
 }
 
 .hero__tagline {
@@ -397,7 +427,6 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: #ffffff;
-  mix-blend-mode: difference;
 }
 
 /* -----------------------------------------
