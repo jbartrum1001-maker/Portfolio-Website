@@ -323,10 +323,9 @@ body {
      transformed element itself sidesteps the problem entirely: it's
      evaluated at the point .hero__pin composites into ITS OWN parent
      (.hero, which stays untransformed), so it correctly blends the
-     whole flattened pin — text plus .hero__grain's own overlay blend on
-     top of it — against .site-swirl/.site-scanlines as one unit. Since
-     the rest of the pin's own box is transparent, only the painted
-     text/grain pixels are actually affected — visually equivalent to
+     whole flattened pin against .site-swirl/.site-scanlines as one
+     unit. Since the rest of the pin's own box is transparent, only the
+     painted text pixels are actually affected — visually equivalent to
      blending the text alone. */
   mix-blend-mode: difference;
   will-change: transform;

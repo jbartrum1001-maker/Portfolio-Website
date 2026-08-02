@@ -10,21 +10,36 @@ no build tooling, no framework, no dependencies beyond Google Fonts.
   above `<main>`.
 - `css/style.css` — all styles, single file, organized in commented blocks matching the
   HTML sections top to bottom.
-- `js/main.js` — mobile nav toggle, hero parallax, Work carousel, custom cursor (see
-  below). No libraries.
-- `assets/` — exists with `cv/`, `icons/`, `images/` subfolders (flat categories, not
-  nested per-content-type — there's no `work/`/`personal/` split inside `images/`).
-  Real files have started landing in `images/`: `Zermatt.jpg` (work tile photo) and
-  `zermatt-logo.png` (wordmark, transparent PNG). Convention: drop new images straight
-  into `assets/images/`, kebab-case filenames, no spaces — exported files often arrive
-  as e.g. `Zermatt logo.png`; rename before wiring in (see gotcha below). Real CV PDF
-  now lives at `assets/cv/jack-bartrum-cv.pdf`, linked from the CV section's download
-  button.
+- `js/main.js` — mobile nav toggle, hero parallax, Work carousel, the site-wide swirl
+  background (see below). No libraries. (No longer has a custom cursor — built, then
+  removed by explicit request; see "Custom cursor (built, then removed)" below.)
+- `assets/` — exists with `background/`, `cv/`, `icons/`, `images/` subfolders (flat
+  categories, not nested per-content-type — there's no `work/`/`personal/` split inside
+  `images/`).
+  - `background/swirl-background.js` — the vendored `SwirlBackground` WebGL class (no
+    dependencies, not npm-installed) that renders the site-wide background — see
+    "Persistent swirl background" below. `background/example-usage.html` is the
+    original usage reference it shipped with, not part of the live site.
+  - Real files have started landing in `images/`: `Zermatt.jpg` (work tile photo) and
+    `zermatt-logo.png` (wordmark, transparent PNG). Convention: drop new images straight
+    into `assets/images/`, kebab-case filenames, no spaces — exported files often arrive
+    as e.g. `Zermatt logo.png`; rename before wiring in (see gotcha below). Real CV PDF
+    now lives at `assets/cv/jack-bartrum-cv.pdf`, linked from the CV section's download
+    button.
 - `work/`, `personal/` — not yet created. Individual project detail pages linked from
   the Work and Personal tiles (see Outstanding work below).
 
+**Git.** The project is now a git repo (it wasn't originally — initialized partway
+through, specifically so visual experiments could be tried and cleanly reverted rather
+than hand-restoring CSS). Commits tend to be one per discrete visual change, with commit
+messages doubling as a changelog of *why*, not just *what* — check `git log` before
+re-deriving the reasoning behind a change from scratch. `git revert <hash>` is the
+default way to back out something that didn't land right.
+
 To preview locally: `python3 -m http.server 8765` from the project root, then open
-`http://localhost:8765`. See the caching gotcha below before trusting what you see.
+`http://localhost:8765`. See the caching gotcha below before trusting what you see —
+it bites often enough in this project that it's worth reading before you conclude a
+change "isn't working."
 
 ## Design system
 
@@ -48,19 +63,31 @@ only. `main > section` just sets `min-height: 100vh` plus flex centering; sectio
 scroll normally with no snapping. The hero is the one exception (see below).
 
 **Hero parallax — deliberately NOT `position: sticky`/`fixed`/`absolute`.** `.hero`
-is a normal, single-viewport section with `overflow: hidden`. `.hero__pin` (holding
-the blob glow, grain, and name/tagline text) is `position: relative` — completely
-normal in the document flow. `js/main.js` applies one continuous
-`transform: translateY(scrollY * 0.4)` to it on scroll, so it visually lags behind
-at 40% of normal scroll speed while `.about` right after it (untouched, scrolling at
-full 1x speed) catches up and rides over it, clipped by `.hero`'s `overflow: hidden`.
+is a normal, single-viewport section. `.hero__pin` (holding the name/tagline text —
+no longer the background visual, see "Persistent swirl background" below) is
+`position: relative` — completely normal in the document flow. `js/main.js` applies
+one continuous `transform: translateY(scrollY * 0.4)` to it on scroll, so it visually
+lags behind at 40% of normal scroll speed.
 
 Past a computed scroll position (`heroFreezeScrollY`, chosen so the text lands
 `--nav-height + 24px` from the top), the transform formula switches to grow 1:1 with
 `scrollY` instead of the 0.4x drag — that exactly cancels further scrolling, so the
-text (and the rest of the visual, since it's one transformed element) holds its
-screen position instead of continuing to drift up and off, while `.about` keeps
-covering it from below.
+text holds its screen position instead of continuing to drift up and off.
+
+**`.hero` deliberately has no `overflow: hidden` (unlike `.about`/`.work` — see gotcha
+#8).** It used to: that clip was what made the frozen `.hero__pin` disappear once
+`.hero`'s own 100vh box scrolled past, timed to coincide with `.about`'s old full-bleed
+opaque background reaching the same screen position. Once About became a narrower
+inset panel with its own separate freeze timing (see "About panel" below), that timing
+assumption broke — the text would vanish into empty swirl-only space *before* the
+panel visually arrived, an invisible cutoff with nothing on screen to explain it. Fix:
+removed the clip. The frozen `.hero__pin` (held by `transform`, which never affects
+layout/document height) now just sits there indefinitely at its frozen screen
+position; `.about__pin`, being later in the DOM, always paints on top of it wherever
+they visually overlap, so the *panel itself* is what visibly covers/overrides the text
+as it scrolls up — not an invisible section boundary. This is a deliberate,
+hero-specific exception to gotcha #8's general rule, made possible because hero has
+nothing behind it that still depends on the old clip-based self-limiting behavior.
 
 This replaced two earlier attempts that both failed in real browsers despite
 looking correct in an automated/headless test browser: first `position: sticky`
@@ -89,6 +116,15 @@ it. Personal is the last section in the chain (covers `.work__pin`) but is not i
 pinned — the freeze/cover chain stops there by explicit design choice, so CV scrolls
 in normally afterward with no special treatment.
 
+**About has since diverged from Work/Personal — read "About panel" below before
+assuming this section still applies uniformly.** Work and Personal still use the
+original design this section describes: a full-bleed, opaque section background that
+covers whatever's frozen beneath it. About no longer does — its section background is
+transparent (so the persistent swirl shows through) and only the narrower, inset
+`.about__pin` "panel" is opaque, so *it* (not the full section) is what does the
+covering now. If the panel treatment is ever extended to Work/Personal/CV, expect to
+revisit the assumptions below for each of them individually.
+
 Two things have to stay true for this to keep working, both easy to break by accident:
 
 - The transform must go on the **inner** `.about__pin` / `.work__pin`, never on the
@@ -112,40 +148,85 @@ Two things have to stay true for this to keep working, both easy to break by acc
 0 -80px 120px -30px rgba(0,0,0,0.7)` as `.about` originally had, for a consistent
 "next card casts a shadow on the one it's covering" depth cue.
 
-**Tried and reverted: animated section backgrounds.** Explored putting a decorative
-moving background behind About/Work/Personal/CV content — first a fixed, sitewide,
-right-third rotating ASCII sphere (viewport-relative, sat in front of content at ~10%
-opacity), then a per-section ASCII "ocean" band in the bottom quarter of each section,
-then a full-section canvas flow-field (simplex noise, domain-warped lines, Balatro/
-PewDiePie-style). All were removed again ("for now," per the user) — the codebase is
-back to plain section backgrounds with no ASCII/canvas layer. Worth keeping the lessons
-if this gets revisited:
-- A background sitting *behind* a section's content needs `z-index: -1` on the
-  background element nested inside a container with `isolation: isolate` (same pattern
-  as the hero glow blobs — see gotcha #2). A plain fixed/sitewide background layer gets
-  hidden outright by the opaque `.about`/`.work`/`.personal` backgrounds the moment it's
-  behind them, which is what killed the first (sphere) attempt.
-- Whether the pin (`.about__pin` etc.) should be stretched to the section's full
-  `min-height: 100vh`, or left at its natural content height, depends on whether the
-  background is full-bleed or confined to one edge: a bottom-anchored band pushed to
-  the true bottom of a stretched 100vh pin ends up mostly below the fold, only
-  flashing briefly during the cover transition; a full-section background doesn't have
-  that problem since growing the container just means it covers more area.
+**Tried, reverted, then successfully rebuilt: animated section backgrounds.** An early
+attempt at a decorative moving background behind About/Work/Personal/CV content — a
+fixed sitewide ASCII sphere, then a per-section ASCII "ocean" band, then a full-section
+canvas flow-field — was tried and fully reverted ("for now," per the user). It was
+later revisited from scratch, successfully, as the WebGL swirl described below —
+different implementation, but the two lessons from the first attempt are exactly what
+made the second one work: (1) a background sitting behind content needs `z-index: -1`
+inside a container with `isolation: isolate`, or an opaque section background hides it
+outright — this killed the original ASCII sphere, and directly informed how
+`.hero__pin` was set up for the blob/swirl (see gotcha #2); (2) whether a pin should
+stretch to the section's full height or hug its natural content height depends on
+whether the background is full-bleed or edge-confined — directly relevant now that
+About's panel is deliberately narrower than its section (see "About panel" below).
 
-**Hero glow.** `.hero__pin::before` / `::after` are blurred radial-gradient blobs with
-`mix-blend-mode: screen`, animated via two independently-timed `@keyframes` for organic
-non-repeating movement. The gradient stops are deliberately bright (a near-white hot
-core fading through `#ffcf9c` → `#ff5a35` → `#c81f1f`) so the blob has a wide dynamic
-range to react against. `.hero__name`, `.hero__role`, and `.hero__tagline` all use
-`mix-blend-mode: difference` (`color: #ffffff`) against it, so the text stays white over
-the black background and inverts harder the brighter/more saturated the blob is directly
-behind it at any given moment — no JS needed, it's pure blend-mode math. The blob also
-gets a small extra scroll-linked `translateY` via a `--blob-shift` custom property (set
-in `updateHeroParallax`, ~15% of the pin's own scroll shift), so it visibly lags the text
-by a fraction during scroll rather than moving in perfect lockstep with it.
+**Persistent swirl background.** `.site-swirl` (`css/style.css`, near the top, above
+the header rules) is a single `SwirlBackground` WebGL canvas
+(`assets/background/swirl-background.js`) instantiated once in `js/main.js` and
+positioned `position: fixed; inset: 0; z-index: -1` at the *body* level — a sibling of
+`<header>`, not nested inside any section. This is deliberate: `position: fixed`
+escapes every section's own `overflow: hidden`/`transform` entirely (the same trick
+`.bottom-glass` already relied on), which is what lets one canvas serve as a genuinely
+persistent, never-scrolling backdrop for the whole page rather than a per-section
+effect. This replaced an earlier version where the hero and About each had their *own*
+separate `SwirlBackground` instance — abandoned because the user specifically wanted
+one continuous background that sections scroll/pin *over*, not multiple independent
+ones that happen to look similar.
 
-**Grain texture.** `.hero__grain` is an SVG `feTurbulence` + `feColorMatrix` data-URI
-background (see the `background-image` in `css/style.css`), not an image asset.
+Sections that want the swirl visible just need a transparent background of their own
+(`.hero__pin`, `.about` both have none) — anything else painted in a normal
+(non-negative) `z-index`, which is every section by default, naturally paints over the
+fixed layer with zero extra effort. Work/Personal/CV/Contact still have their original
+opaque backgrounds, so the swirl doesn't show through them (yet — see Outstanding).
+
+The shader's default red/blue "marble" palette was retuned in the `swirlOptions`
+passed into the `SwirlBackground` constructor to a warm red/black ramp matching the
+site's original hero-blob palette and the section-heading glow, instead of introducing
+blue. `resolutionScale` (currently `0.4`) renders the canvas at a fraction of its
+actual displayed size — the shader is fragment-heavy, so this is a real, significant
+GPU-cost win (a straight `scale²` reduction in pixels computed per frame), and because
+the shader samples with `gl.LINEAR` filtering, the upscale reads as a deliberately
+soft, chunky, slightly-low-res look (reference: Balatro's card-shader backgrounds)
+rather than jagged pixelation. Tune this one number to trade sharpness for performance
+in either direction. `filter: brightness(0.5) saturate(1.1)` on `.site-swirl` itself
+further darkens the shader's own output to sit closer to the site's near-black theme
+(the shader's raw output alone reads too pale/cream against it).
+
+**CRT scanlines (sitewide).** `.site-scanlines` sits right next to `.site-swirl` in
+both the CSS and the DOM (same `position: fixed; z-index: -1`, placed *after*
+`.site-swirl` so it paints on top of it — equal negative-`z-index` siblings stack in
+tree order) — a `repeating-linear-gradient` + radial vignette, `mix-blend-mode:
+multiply`, low opacity (`0.18`), adapted from `assets/background/example-usage.html`'s
+`.crt` recipe but dialed back so it reads as a faint texture, not an overt effect. Pure
+CSS, no JS. Originally hero-only (`.hero__scanlines`), moved sitewide alongside the
+swirl for the same reason the swirl itself went sitewide.
+
+**Mix-blend-mode text inversion depends on `.hero__pin`, not the text itself, having
+`mix-blend-mode: difference`.** `.hero__name`/`role`/`tagline` are plain white text
+with no blend-mode of their own. This looks backwards but is required: `.hero__pin`
+has a JS-applied `transform` (the parallax drag/freeze above), and *any* active
+`transform` on an element makes it establish its own stacking context — which silently
+blocks `mix-blend-mode` on its descendants from ever compositing against anything
+outside that boundary, `.site-swirl` included, regardless of `isolation`. Putting the
+blend-mode on `.hero__pin` itself sidesteps this: it's evaluated at the point the pin
+composites into its own (untransformed) parent, so it correctly blends the whole
+flattened pin against the swirl. Since the rest of the pin's box is transparent, only
+the painted text is actually affected — visually equivalent to blending the text
+alone. See gotcha #10 before "fixing" this back the other way; it was tested
+extensively and the isolation-based theory was wrong.
+
+**About panel.** `.about__pin` is no longer just a scroll-freeze wrapper — it's a
+visible "panel": solid `background-color: var(--color-bg)`, `margin-inline: clamp(24px,
+8vw, 140px)` insetting it from `.about`'s own (transparent) edges so the persistent
+swirl shows as a gutter on either side, and a hand-built pixel-staircase `clip-path`
+(controlled by one `--pixel-corner-step` custom property, default `10px` × 3 steps) for
+Balatro-style blocky, stepped corners instead of a smooth `border-radius`. `.about`
+itself lost its old `background-color` and `box-shadow` (the "next card casts a
+shadow" cue every other section still has) — with hero and About now sharing one
+continuous background, that shadow read as a seam across what should be unbroken.
+Only About has this treatment so far; Work/Personal/CV are unchanged (see Outstanding).
 
 **Work carousel.** `#work` no longer uses a 2x2 grid — `.work-carousel` is a
 center-focused slider (Kodak / Zermatt / Twix / Norwich Theatre Royal) that spans the
@@ -173,8 +254,11 @@ active index. Three more behaviors layered on top:
   `.site-header` — see below) fades in over the *centered* tile only, on hover — scoped
   via `.work-tile[aria-current="true"]:hover`, the same attribute `renderWorkCarousel`
   already toggles per-slide, so the peeking side tiles never trigger it. Sits at
-  `z-index: 4`, above the logo/badge (`z-index: 1`), ready for overview copy to be
-  layered on top of it later (not built yet).
+  `z-index: 4`. `.work-tile__logo` sits *above* it at `z-index: 5` (raised from `1`) so
+  the hover blur reveals under the logo, not over it — the photo blurs, the wordmark
+  stays crisp. `.work-tile__badge` is still at `z-index: 1`, under the glass, on
+  purpose — only the logo was asked to stay sharp. Ready for overview copy to be
+  layered on top of the glass later (not built yet).
 
 Each tile layers three pieces inside the `<a class="work-tile">`: `.work-tile__visual`
 (the photo — `position: absolute; inset: 0`, `background-image` + `background-size:
@@ -238,42 +322,16 @@ over the fade while collapsed and re-anchors to the true bottom once
 `.cv__document--expanded` (toggled in `js/main.js`) lifts the `max-height` clamp to
 `4000px`.
 
-**Custom cursor.** `.cursor` (`position: fixed`, `z-index: 9999`) holds a lead dot plus 5
-trailing dots; native cursor is hidden sitewide via `cursor: none` inside
-`@media (pointer: fine)` only, so touch devices keep their default behavior untouched.
-The lead dot eases toward the real mouse position each frame (lerp factor `0.5`); each
-trailing dot eases toward the one ahead of it (factor `0.35`) — a chained "worm" follow.
-How many trailing dots are visible is driven by the lead dot's current per-frame speed
-via `Math.floor(speed / 4)`, so the trail lengthens with faster movement and collapses to
-just the lead dot at rest.
-
-The lead dot does a true per-pixel color invert of whatever's behind it via
-`backdrop-filter: invert(1)` (`background-color: transparent`) — added after a plain
-solid `background-color: var(--color-text)` dot went invisible against the CV card's
-light background. `mix-blend-mode: difference` was tried first and rejected (see
-gotcha #5) before landing on `backdrop-filter`. Only the *lead* dot inverts — the 5
-trailing dots stay solid color (`var(--color-text)`, swapped to `#111111` via a
-`.cursor--on-light` class when the cursor is over `.cv__document`, toggled in the
-`mousemove` handler). This split was forced by two real bugs hit when every dot had
-`backdrop-filter: invert(1)` — see gotcha #9. `.cursor__dot--lead` also carries
-`z-index: 1` for the same reason (gotcha #9) — without it, an opaque trailing dot
-happening to overlap the lead paints on top of it and occludes the invert, regardless
-of the filter.
-
-Hover growth (on `a`/`button`, via `.cursor--hover`, `event.target.closest('a, button')`
-in the `mousemove` handler) is an eased `transform: scale()` computed in
-`updateCursor()` (`cursorLeadScale`, blend factor `0.25`), not a CSS `width`/`height`
-transition — resizing a `backdrop-filter` element's actual box was suspected of
-desyncing its captured backdrop mid-transition. That specific theory turned out not to
-be the real cause of the reported artifacts (the z-index/compounding issue in gotcha #9
-was), but scale-based growth is compositor-only and strictly cheaper than animating
-layout-affecting properties, so it was kept regardless.
-
-Status: implemented and internally verified (forced DOM-level overlap tests, see
-gotcha #9), but **not yet re-confirmed by the user against real mouse movement in a
-real browser** — more than any other effect in this file, this one is impossible to
-validate from a static screenshot. If a lag/ghosting report resurfaces, don't assume
-it's the same bug already fixed here; re-diagnose fresh.
+**Custom cursor (built, then removed).** A `.cursor` lead-dot-plus-5-trailing-dots
+effect (native cursor hidden via `cursor: none` inside `@media (pointer: fine)`,
+`backdrop-filter: invert(1)` on the lead dot only) was built, internally verified, and
+later removed in full by explicit user request — markup, CSS, and JS all deleted in one
+commit ("Remove custom cursor, revert to native pointer"; see git history for the
+complete implementation and `git revert` to bring it back). Gotchas #5 and #9 below
+still document the two real, non-obvious CSS bugs it surfaced (`backdrop-filter`
+compounding/occlusion, `mix-blend-mode` + `position: fixed` unreliability) — worth
+reading before building any *new* effect that layers multiple `backdrop-filter` or
+blend-mode elements, even though the cursor itself is gone.
 
 ## Known gotchas (hard-won, don't re-discover these)
 
@@ -286,20 +344,36 @@ it's the same bug already fixed here; re-diagnose fresh.
    uses prefixes like `heroParallaxEl`, `workCarousel`, etc.).
 
 2. **`mix-blend-mode` + stacking contexts.** If you give `.hero__inner` (or any element
-   sitting in front of the blend-mode blob) its own `position` + `z-index`, it creates a
+   sitting in front of blend-mode content) its own `position` + `z-index`, it creates a
    new stacking context that silently breaks the blend calculation even inside a `.hero`
-   with `isolation: isolate`. The blob pseudo-elements use `z-index: -1` specifically so
-   `.hero__inner` doesn't need a competing `z-index` at all. Don't add one.
+   with `isolation: isolate`. The old blob pseudo-elements (and now `.site-swirl`) use
+   `z-index: -1` specifically so `.hero__inner` doesn't need a competing `z-index` at
+   all. Don't add one. **This is about `isolation`/`z-index` specifically — a `transform`
+   on an ancestor breaks blend-mode too, but for a different reason and needs a
+   different fix; see gotcha #10, which is what actually broke hero text inversion
+   after the swirl went sitewide.**
 
 3. **Local dev server caching.** `python3 -m http.server` sends no cache-control headers,
-   so a browser will happily keep serving a stale cached copy of `js/main.js` or
-   `style.css` across reloads, even hard ones, while `fetch(url, {cache: 'no-store'})`
-   correctly bypasses it — meaning it's easy to convince yourself a fresh edit "didn't
-   work" during live testing. If a change stops appearing to take effect, suspect the
-   cache before suspecting the code: bump a `?v=` query string on the affected `<script>`/
-   `<link>` tag, verify, then remove it again. Also try a fresh Incognito window pointed
-   at `http://localhost:8765` directly (not a double-clicked `file://` path) to rule out
-   both caching and protocol-specific quirks in one step.
+   so a browser will happily keep serving a stale cached copy of `js/main.js`, `style.css`,
+   or even `index.html` itself across reloads — repeatedly, in this project, across
+   *multiple* supposedly-hard reloads — while `fetch(url, {cache: 'no-store'})` correctly
+   bypasses it. This is the single most common cause of "my fix isn't showing up" during
+   live verification here; suspect it before suspecting the code. In rough order of
+   reliability:
+   - Weakest: bump a `?v=` query string on the affected `<script>`/`<link>` tag (or via
+     JS: swap `link.href` to a new `?v=` value) — works for that one resource, but if
+     *other* resources on the page (or the page's own HTML) are also stale, you'll still
+     get confusing partial results. Also easy to grab the wrong `<link>` if there's more
+     than one `rel="stylesheet"` on the page (e.g. the Google Fonts link) — filter by
+     `href` content, don't just take the first match.
+   - Better: a fresh Incognito window pointed at `http://localhost:8765` directly (not a
+     double-clicked `file://` path).
+   - Most reliable, and what actually worked after the other two both failed mid-session:
+     kill the server and restart it on a **port the browser has never visited**, then
+     open a brand-new tab there. A previously-used port can still serve stale `index.html`
+     itself, not just its linked assets, even in a tab that's never loaded before — the
+     browser's cache is keyed by URL, not by tab. A genuinely fresh port sidesteps the
+     whole problem in one step instead of chasing which specific resource is stale.
 
 4. **`position: sticky` is not trustworthy for scroll-pin effects in this project.**
    Verified working in an automated Chromium test browser, then reproducibly broken in
@@ -346,9 +420,15 @@ it's the same bug already fixed here; re-diagnose fresh.
    band. Reproduced once while building the scroll-stacking cards; fixed by moving the
    transform onto a dedicated inner pin, same as hero.
 
+   **`.hero` is now a deliberate, explained exception to the "outer section needs
+   `overflow: hidden`" half of this rule** — its clip was removed on purpose so
+   `.about__pin` (a visible panel) does the covering instead of an invisible section
+   boundary. See "Hero parallax" above before assuming this rule is being violated by
+   accident if you go looking at `.hero`'s CSS.
+
 9. **`backdrop-filter` on multiple overlapping, independently-moving elements compounds
    and occludes.** Two distinct bugs surfaced building the custom cursor's invert effect
-   (see "Custom cursor" above), both only visible with real mouse movement — a static
+   (see "Custom cursor (built, then removed)" above), both only visible with real mouse movement — a static
    screenshot won't show either one:
    - Two elements that both run `backdrop-filter: invert(1)` and happen to overlap
      double-invert back to the *original* color in the overlap region — reads as a
@@ -368,6 +448,33 @@ it's the same bug already fixed here; re-diagnose fresh.
    to the same point via devtools/JS and look for the compound or occlusion), since it
    won't show up from moving the mouse around casually or from a screenshot.
 
+10. **An active `transform` on an ancestor blocks `mix-blend-mode` on its descendants
+    from reaching anything outside that ancestor — independent of `isolation`.** Hit
+    when the swirl background moved from living inside `.hero__pin` to living outside
+    it as `.site-swirl`: hero text (`mix-blend-mode: difference`) stopped inverting
+    entirely. The first, wrong theory was `isolation: isolate` on `.hero__pin` (removed
+    it — no change). The actual cause, confirmed by live testing in the browser (toggle
+    `element.style.transform = ''` vs restoring a real `translateY(...)` value and
+    watching inversion turn on/off in lockstep): `.hero__pin` has a JS-driven
+    `transform` for the parallax drag/freeze (see "Hero parallax" above), and *any*
+    non-`none` `transform` value makes an element establish its own stacking context —
+    which walls off blend-mode for its descendants from the backdrop outside it, the
+    same way `isolation: isolate` does, but as an unavoidable side effect of needing the
+    transform at all, not something you can just remove. `will-change: transform` alone
+    (with no actual transform value) was tested too and does *not* cause this — it's
+    specifically an active transform value that triggers it.
+
+    **Fix used here: move the `mix-blend-mode` from the descendant text onto the
+    transformed ancestor itself.** `.hero__pin` now carries
+    `mix-blend-mode: difference` directly; `.hero__name`/`role`/`tagline` are plain
+    white text with no blend-mode of their own. The blend is evaluated where
+    `.hero__pin` composites into its own (untransformed) parent, so it correctly reaches
+    `.site-swirl`. Since the rest of the pin's box is transparent, only its painted
+    text content ends up visually affected — same result as blending the text
+    directly, just evaluated one level higher up the tree. If a similar "blend against
+    something outside a transformed wrapper" need comes up again, this is the pattern:
+    blend on the transformed element, not on its children.
+
 ## Conventions
 
 - Work section-by-section, checking in before moving to the next section — that's how
@@ -376,14 +483,26 @@ it's the same bug already fixed here; re-diagnose fresh.
   header/bottom glass → section heading glow → custom cursor → Zermatt tile imagery →
   work tile hover glass reveal → scroll-stacking cards → animated section backgrounds
   (explored, reverted) → real CV content + expand/collapse → custom cursor invert
-  rebuild).
+  rebuild → git init for revert safety → hero blob swapped for WebGL swirl → CRT
+  scanlines + grain removed → swirl resolution/perf tuning → work tile logo raised
+  above hover glass → About panel trial (pixel corners, inset gutter) → swirl and
+  scanlines made persistent/sitewide → hero/About seam shadow dropped → hero text
+  inversion fixed + About panel made the visible thing that covers hero text → custom
+  cursor removed entirely).
 - Reference designs are for *flow/behavior* inspiration only, not literal visual copying
   (e.g. midu.design was referenced for the scroll-parallax feel, not its actual layout;
   viclopez.art was referenced for the scroll-stacking cards' "next section covers the
-  frozen one" feel) — though for the hero parallax specifically, its live DOM was
-  directly inspected to reverse-engineer the exact technique after other approaches
-  kept failing.
-- No build step, no bundler, no package.json — keep it that way unless asked.
+  frozen one" feel; Balatro's card shaders were referenced for the swirl's low-res
+  chunky look and the About panel's pixel-stepped corners) — though for the hero
+  parallax specifically, its live DOM was directly inspected to reverse-engineer the
+  exact technique after other approaches kept failing.
+- No build step, no bundler, no package.json — keep it that way unless asked. (Git was
+  added — see "Git" under Structure — but that's version control, not build tooling;
+  the "no build step" convention is unaffected.)
+- Visual experiments that might get reverted (backgrounds, layout treatments — anything
+  the user says "let's try" or "be prepared to undo" about) get their own git commit
+  before and after, so `git revert` is always available instead of hand-reconstructing
+  CSS from memory.
 
 ## Outstanding / not yet built
 
@@ -399,3 +518,12 @@ it's the same bug already fixed here; re-diagnose fresh.
 - Work tile overview text — the `.work-tile__glass` hover reveal (frosted glass over the
   centered tile on hover) is built and working; the actual copy meant to sit on top of it
   hasn't been added yet.
+- The persistent-swirl + inset-panel treatment (see "Persistent swirl background" and
+  "About panel" above) is currently About-only, by explicit design — it was built as an
+  isolated trial. Work, Personal, CV, and Contact still use the original full-bleed
+  opaque section design (their own `background-color`, plus Work/Personal's upward-cast
+  `box-shadow` cover cue that About's no longer has). If this gets extended sitewide,
+  each section will need its own version of the transparent-background + inset-panel +
+  pixel-corner treatment (or a shared component extracted from `.about__pin`'s CSS), and
+  Work/Personal's `box-shadow` will likely need the same removal treatment About's got,
+  for the same "seam across what should be unbroken" reason.
