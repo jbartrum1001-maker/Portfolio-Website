@@ -423,17 +423,76 @@ body {
      layer. overflow: hidden + this section's own natural (bounded)
      height is what makes the frozen .about__pin disappear once .about
      itself has fully scrolled past — same relationship as .hero /
-     .hero__pin above. */
+     .hero__pin above.
+
+     isolation: isolate is new here (trial — see .about__swirl below):
+     it lets .about__swirl sit at z-index: -1 and paint correctly behind
+     .about__pin without needing a z-index on .about__pin itself, same
+     reasoning as gotcha #2 in CLAUDE.md for the hero blob/swirl. */
   position: relative;
   overflow: hidden;
+  isolation: isolate;
   padding-block: var(--space-xl);
   background-color: var(--color-bg);
   box-shadow: 0 -80px 120px -30px rgba(0, 0, 0, 0.7);
 }
 
+/* TRIAL — persistent swirl background + inset "panel" content, About
+   only for now. Full section backdrop (siblings of .about__pin, not
+   nested inside it, so it spans the whole section width while the
+   panel sits narrower on top) — same SwirlBackground instance pattern
+   as .hero__swirl, own instance wired up in js/main.js. */
+.about__swirl {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
 .about__pin {
+  /* The "panel" — solid background inset from the section edges so
+     .about__swirl shows through as a gutter on either side. Corner
+     shape is a hand-built pixel staircase (clip-path), not
+     border-radius, per the Balatro reference: a blocky, stepped
+     corner cut rather than a smooth curve. --pixel-corner-step is the
+     size of each of the 3 steps (3 steps × step = total corner cut);
+     tune that one variable to make the corners chunkier/finer. */
+  --pixel-corner-step: 10px;
   position: relative;
   will-change: transform;
+  margin-inline: clamp(24px, 8vw, 140px);
+  padding: var(--space-xl) var(--space-lg);
+  background-color: var(--color-bg);
+  clip-path: polygon(
+    0 calc(var(--pixel-corner-step) * 3),
+    var(--pixel-corner-step) calc(var(--pixel-corner-step) * 3),
+    var(--pixel-corner-step) calc(var(--pixel-corner-step) * 2),
+    calc(var(--pixel-corner-step) * 2) calc(var(--pixel-corner-step) * 2),
+    calc(var(--pixel-corner-step) * 2) var(--pixel-corner-step),
+    calc(var(--pixel-corner-step) * 3) var(--pixel-corner-step),
+    calc(var(--pixel-corner-step) * 3) 0,
+    calc(100% - var(--pixel-corner-step) * 3) 0,
+    calc(100% - var(--pixel-corner-step) * 3) var(--pixel-corner-step),
+    calc(100% - var(--pixel-corner-step) * 2) var(--pixel-corner-step),
+    calc(100% - var(--pixel-corner-step) * 2) calc(var(--pixel-corner-step) * 2),
+    calc(100% - var(--pixel-corner-step)) calc(var(--pixel-corner-step) * 2),
+    calc(100% - var(--pixel-corner-step)) calc(var(--pixel-corner-step) * 3),
+    100% calc(var(--pixel-corner-step) * 3),
+    100% calc(100% - var(--pixel-corner-step) * 3),
+    calc(100% - var(--pixel-corner-step)) calc(100% - var(--pixel-corner-step) * 3),
+    calc(100% - var(--pixel-corner-step)) calc(100% - var(--pixel-corner-step) * 2),
+    calc(100% - var(--pixel-corner-step) * 2) calc(100% - var(--pixel-corner-step) * 2),
+    calc(100% - var(--pixel-corner-step) * 2) calc(100% - var(--pixel-corner-step)),
+    calc(100% - var(--pixel-corner-step) * 3) calc(100% - var(--pixel-corner-step)),
+    calc(100% - var(--pixel-corner-step) * 3) 100%,
+    calc(var(--pixel-corner-step) * 3) 100%,
+    calc(var(--pixel-corner-step) * 3) calc(100% - var(--pixel-corner-step)),
+    calc(var(--pixel-corner-step) * 2) calc(100% - var(--pixel-corner-step)),
+    calc(var(--pixel-corner-step) * 2) calc(100% - var(--pixel-corner-step) * 2),
+    var(--pixel-corner-step) calc(100% - var(--pixel-corner-step) * 2),
+    var(--pixel-corner-step) calc(100% - var(--pixel-corner-step) * 3),
+    0 calc(100% - var(--pixel-corner-step) * 3)
+  );
 }
 
 .about__grid {

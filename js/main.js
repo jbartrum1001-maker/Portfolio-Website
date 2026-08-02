@@ -15,25 +15,41 @@ primaryNav.querySelectorAll('a').forEach((link) => {
   });
 });
 
-// Hero swirl background — replaces the old radial-gradient blob glow.
+// Swirl backgrounds — replaces the old radial-gradient hero blob glow.
 // See assets/background/swirl-background.js for the effect itself;
 // colours below are retuned from its default red/blue marble to stay
 // on the site's warm red/orange palette (same ramp the old blob and
 // the section-heading glow both use) instead of introducing blue.
-const heroSwirlEl = document.querySelector('.hero__swirl');
+// Shared across every SwirlBackground instance on the page (hero, and
+// now About as a trial — see .about__swirl in css/style.css) so any
+// future retune only needs to happen in one place.
+const swirlOptions = {
+  balance: 0.72,
+  settle: 0.3,
+  resolutionScale: 0.4,
+  colours: {
+    redDark: '#150402', redMid: '#7a1f10', redLight: '#d4562c',
+    blueDark: '#050505', blueMid: '#120a0a', blueLight: '#241212',
+    highlight: '#fff4e0'
+  }
+};
 
+const heroSwirlEl = document.querySelector('.hero__swirl');
 if (heroSwirlEl && typeof SwirlBackground !== 'undefined') {
-  new SwirlBackground({
-    container: heroSwirlEl,
-    balance: 0.72,
-    settle: 0.3,
-    resolutionScale: 0.4,
-    colours: {
-      redDark: '#150402', redMid: '#7a1f10', redLight: '#d4562c',
-      blueDark: '#050505', blueMid: '#120a0a', blueLight: '#241212',
-      highlight: '#fff4e0'
-    }
-  });
+  new SwirlBackground({ container: heroSwirlEl, ...swirlOptions });
+}
+
+// About's own swirl instance — a full-section backdrop that shows
+// through the gutters on either side of .about__pin's inset "panel".
+// Deliberately not scroll-frozen the way .about__pin is: it's a plain
+// sibling, not nested inside the pin, so it scrolls at the section's
+// normal 1x speed while the panel above it freezes/holds — see the
+// .about__swirl comment in css/style.css for why it has to live
+// outside the pin (the pin's own width is the narrower panel, not the
+// full section).
+const aboutSwirlEl = document.querySelector('.about__swirl');
+if (aboutSwirlEl && typeof SwirlBackground !== 'undefined') {
+  new SwirlBackground({ container: aboutSwirlEl, ...swirlOptions });
 }
 
 // -----------------------------------------
