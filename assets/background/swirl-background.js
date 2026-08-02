@@ -33,7 +33,11 @@ class SwirlBackground {
     },
     maxFPS: 60,
     pauseWhenHidden: true,   // pause the render loop when the browser tab isn't visible
-    pauseWhenOffscreen: true // pause when the container scrolls out of view
+    pauseWhenOffscreen: true, // pause when the container scrolls out of view
+    resolutionScale: 1 // render at this fraction of the container's pixel size, then
+                        // let the browser upscale — fewer fragment-shader pixels per
+                        // frame, and since sampling is gl.LINEAR the upscale reads as
+                        // a soft, chunky low-res look rather than jagged pixelation
   };
 
   constructor(opts = {}) {
@@ -257,7 +261,7 @@ class SwirlBackground {
 
   _resize() {
     const rect = this.container.getBoundingClientRect();
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2) * this.opts.resolutionScale;
     this.canvas.width = Math.max(1, Math.round(rect.width * dpr));
     this.canvas.height = Math.max(1, Math.round(rect.height * dpr));
     this._setupTarget(this.canvas.width, this.canvas.height);
