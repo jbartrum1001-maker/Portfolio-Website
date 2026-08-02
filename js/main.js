@@ -15,6 +15,26 @@ primaryNav.querySelectorAll('a').forEach((link) => {
   });
 });
 
+// Hero swirl background — replaces the old radial-gradient blob glow.
+// See assets/background/swirl-background.js for the effect itself;
+// colours below are retuned from its default red/blue marble to stay
+// on the site's warm red/orange palette (same ramp the old blob and
+// the section-heading glow both use) instead of introducing blue.
+const heroSwirlEl = document.querySelector('.hero__swirl');
+
+if (heroSwirlEl && typeof SwirlBackground !== 'undefined') {
+  new SwirlBackground({
+    container: heroSwirlEl,
+    balance: 0.72,
+    settle: 0.3,
+    colours: {
+      redDark: '#150402', redMid: '#7a1f10', redLight: '#d4562c',
+      blueDark: '#050505', blueMid: '#120a0a', blueLight: '#241212',
+      highlight: '#fff4e0'
+    }
+  });
+}
+
 // -----------------------------------------
 // Hero parallax — no position: sticky/fixed/absolute at all. The
 // hero visual gets a continuous translateY at a fraction of scroll
