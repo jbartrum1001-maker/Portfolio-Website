@@ -563,7 +563,9 @@ body {
 .work-tile__logo {
   font-family: var(--font-display);
   position: relative;
-  z-index: 1;
+  /* Above .work-tile__glass (z-index: 4) so the hover blur reveals under
+     the logo instead of over it — the photo blurs, the logo stays crisp. */
+  z-index: 5;
   font-size: clamp(1.1rem, 2.5vw, 1.75rem);
   font-weight: 700;
   text-align: center;
