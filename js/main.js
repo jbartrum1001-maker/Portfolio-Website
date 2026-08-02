@@ -27,7 +27,7 @@ if (heroSwirlEl && typeof SwirlBackground !== 'undefined') {
     container: heroSwirlEl,
     balance: 0.72,
     settle: 0.3,
-    resolutionScale: 0.5,
+    resolutionScale: 0.3,
     colours: {
       redDark: '#150402', redMid: '#7a1f10', redLight: '#d4562c',
       blueDark: '#050505', blueMid: '#120a0a', blueLight: '#241212',
