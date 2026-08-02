@@ -19,10 +19,18 @@ primaryNav.querySelectorAll('a').forEach((link) => {
 // the whole page (see .site-swirl in css/style.css), not per-section.
 // Sections that want it visible just need a transparent background;
 // content elsewhere (About's panel, the header, etc.) naturally paints
-// over it. Replaces the old radial-gradient hero blob glow; colours
-// below are retuned from its default red/blue marble to stay on the
-// site's warm red/orange palette (same ramp the old blob and the
-// section-heading glow both use) instead of introducing blue.
+// over it. Replaces the old radial-gradient hero blob glow.
+//
+// Colours were first retuned off the shader's default red/blue marble
+// to a warm red/orange ramp (matching the old blob glow and the
+// section-heading pulse), then retuned again here to a dark-navy /
+// steel-blue / icy-highlight ramp per a reference photo — both
+// colour "families" (redDark/Mid/Light and blueDark/Mid/Light, just
+// the shader's own generic names for its two blend ramps) are now
+// blue tones rather than one being red, so the marble blend reads as
+// one cohesive blue instead of red-vs-blue. balance/settle/
+// resolutionScale are untouched on purpose — only the palette
+// changed, not the shape or motion of the swirl.
 const siteSwirlEl = document.querySelector('.site-swirl');
 if (siteSwirlEl && typeof SwirlBackground !== 'undefined') {
   new SwirlBackground({
@@ -31,9 +39,9 @@ if (siteSwirlEl && typeof SwirlBackground !== 'undefined') {
     settle: 0.3,
     resolutionScale: 0.4,
     colours: {
-      redDark: '#150402', redMid: '#7a1f10', redLight: '#d4562c',
-      blueDark: '#050505', blueMid: '#120a0a', blueLight: '#241212',
-      highlight: '#fff4e0'
+      redDark: '#040c14', redMid: '#123a5c', redLight: '#3f7fad',
+      blueDark: '#0a1f30', blueMid: '#2f7fc4', blueLight: '#a8def5',
+      highlight: '#eaf6ff'
     }
   });
 }

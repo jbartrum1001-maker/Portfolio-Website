@@ -20,9 +20,11 @@ no build tooling, no framework, no dependencies beyond Google Fonts.
     dependencies, not npm-installed) that renders the site-wide background — see
     "Persistent swirl background" below. `background/example-usage.html` is the
     original usage reference it shipped with, not part of the live site.
-  - Real files have started landing in `images/`: `Zermatt.jpg` (work tile photo) and
-    `zermatt-logo.png` (wordmark, transparent PNG). Convention: drop new images straight
-    into `assets/images/`, kebab-case filenames, no spaces — exported files often arrive
+  - Real files have started landing in `images/`: `Zermatt.jpg` (work tile photo),
+    `zermatt-logo.png` (wordmark, transparent PNG), and `temp-about-pic.jpg` (About's
+    portrait — a real photo, but explicitly a placeholder/temp one per its filename,
+    not necessarily the final image). Convention: drop new images straight into
+    `assets/images/`, kebab-case filenames, no spaces — exported files often arrive
     as e.g. `Zermatt logo.png`; rename before wiring in (see gotcha below). Real CV PDF
     now lives at `assets/cv/jack-bartrum-cv.pdf`, linked from the CV section's download
     button.
@@ -36,7 +38,10 @@ messages doubling as a changelog of *why*, not just *what* — check `git log` b
 re-deriving the reasoning behind a change from scratch. `git revert <hash>` is the
 default way to back out something that didn't land right.
 
-To preview locally: `python3 -m http.server 8765` from the project root, then open
+To preview locally: `.claude/launch.json` runs `py -m http.server 8765` (not
+`python3` — on this Windows machine `python3`/`python` resolve to a Microsoft Store
+alias stub that errors instead of launching Python, even though a real Python 3 install
+exists; `py`, the Python Launcher, is the one that actually works here). Open
 `http://localhost:8765`. See the caching gotcha below before trusting what you see —
 it bites often enough in this project that it's worth reading before you conclude a
 change "isn't working."
@@ -181,10 +186,18 @@ Sections that want the swirl visible just need a transparent background of their
 fixed layer with zero extra effort. Work/Personal/CV/Contact still have their original
 opaque backgrounds, so the swirl doesn't show through them (yet — see Outstanding).
 
-The shader's default red/blue "marble" palette was retuned in the `swirlOptions`
+The shader's default red/blue "marble" palette was first retuned in the `swirlOptions`
 passed into the `SwirlBackground` constructor to a warm red/black ramp matching the
 site's original hero-blob palette and the section-heading glow, instead of introducing
-blue. `resolutionScale` (currently `0.4`) renders the canvas at a fraction of its
+blue — then retuned a second time, later, to a dark-navy / steel-blue / icy-highlight
+ramp matching a reference photo the user supplied, explicitly *introducing* blue this
+time. Both of the shader's colour "families" (`redDark`/`redMid`/`redLight` and
+`blueDark`/`blueMid`/`blueLight` — just the shader's own generic internal names for its
+two blend ramps, not a literal red-vs-blue split) are blue tones now, so the marble
+blend reads as one cohesive blue rather than two competing hues; `balance`/`settle`/
+`resolutionScale` were left untouched both times — only the palette changed, not the
+shape or motion of the swirl. `resolutionScale` (currently `0.4`) renders the canvas at
+a fraction of its
 actual displayed size — the shader is fragment-heavy, so this is a real, significant
 GPU-cost win (a straight `scale²` reduction in pixels computed per frame), and because
 the shader samples with `gl.LINEAR` filtering, the upscale reads as a deliberately
@@ -217,16 +230,116 @@ the painted text is actually affected — visually equivalent to blending the te
 alone. See gotcha #10 before "fixing" this back the other way; it was tested
 extensively and the isolation-based theory was wrong.
 
-**About panel.** `.about__pin` is no longer just a scroll-freeze wrapper — it's a
-visible "panel": solid `background-color: var(--color-bg)`, `margin-inline: clamp(24px,
-8vw, 140px)` insetting it from `.about`'s own (transparent) edges so the persistent
-swirl shows as a gutter on either side, and a hand-built pixel-staircase `clip-path`
-(controlled by one `--pixel-corner-step` custom property, default `10px` × 3 steps) for
-Balatro-style blocky, stepped corners instead of a smooth `border-radius`. `.about`
-itself lost its old `background-color` and `box-shadow` (the "next card casts a
-shadow" cue every other section still has) — with hero and About now sharing one
-continuous background, that shadow read as a seam across what should be unbroken.
-Only About has this treatment so far; Work/Personal/CV are unchanged (see Outstanding).
+**About panel.** `.about__pin` is a scroll-freeze wrapper only — `position`/`transform`/
+`min-height`, no background or `clip-path` of its own (see the shadow paragraph below
+for why). The panel's actual visible surface is `.about__grid`: it carries the solid
+`background-color`, the pixel-corner `clip-path`, and the padding that briefly lived on
+`.about__pin` instead. `.about__pin` is `display: flex` with `align-items` left at its
+default (`stretch`), so `.about__grid` stretches to fill `.about__pin`'s full height
+rather than shrink-wrapping its own (much shorter) content; `.about__pin` itself carries
+`min-height: calc(100vh - var(--nav-height) - var(--space-lg))` so the panel reads as a
+near-full-page card instead of a small box floating in a mostly-empty section.
+`align-content: center` on `.about__grid` recenters its content vertically within that
+now-stretched height, replacing the centering `.about__pin`'s old `align-items: center`
+used to provide. `margin-inline: clamp(16px, 4vw, 72px)` (tighter than an earlier
+`clamp(24px, 8vw, 140px)`) insets the panel from `.about`'s own transparent edges so the
+persistent swirl still shows as a side gutter, just a narrower one than the first pass.
+`.about` itself still has no `background-color`/`box-shadow` of its own — see the
+original reasoning below about the seam that created against the now-continuous
+hero/About background; that part hasn't changed. Only About has this panel treatment so
+far; Work/Personal/CV are unchanged (see Outstanding).
+
+Corner shape is still a hand-built pixel-staircase `clip-path` (`--pixel-corner-step`,
+currently `6px` × 9 cells per corner) for Balatro-style blocky corners instead of a
+smooth `border-radius`, but the actual curve math went through three attempts before it
+looked right:
+1. **Equal-size steps** (the original version). These always trace a straight 45° line
+   no matter how many steps you use — more steps only smooths the diagonal, never
+   curves it, since a uniform staircase is geometrically a straight line at any
+   resolution. Read as a triangular chamfer, not a rounded corner, regardless of step
+   count.
+2. **A quarter-circle sampled per-cell, but the wrong circle** — one centered on the
+   panel's own outer corner (`y = sqrt(R² − x²)`) rather than one inset by the radius.
+   This put the wide flat run at the wrong end of the curve and still read closer to a
+   chamfer than an actual curve.
+3. **The real rounded-rect corner circle** — centered `R` cells in from both edges
+   (`y = R − sqrt(R² − (R−x)²)`) — combined with deliberately chunky, multi-cell steps
+   rather than one cell per step: the first step off the steep edge alone drops 4 cells,
+   then 2, then three single-cell steps carry the middle of the curve (where the slope
+   crosses 45°), then two widening steps (2 cells, then 4) carry it into the shallow
+   edge. That step *pattern*, not just the corrected circle formula, is what actually
+   produces a curved silhouette instead of a diagonal one — this is the version live now.
+
+**About panel color and shadow — an explicit trial, not the final look.** The panel's
+`background-color` (`#3d6989`, on `.about__grid`) is a placeholder ahead of a full
+sitewide colour-scheme pass, picked — along with the About text-shadow color `#102245`
+below — purely to sit reasonably against the swirl's own newly-blue palette (see
+"Persistent swirl background" above), not as a considered final choice. A hard offset
+*panel* shadow (a solid `#102245` copy of the panel's own pixel-corner shape, offset
+behind and to the lower-left — the same "sticker" idea as the About-portrait shadow
+below) was built and made to render correctly: `.about__pin` had to stay
+background/`clip-path`-free specifically so a `::before` shadow pseudo-element could sit
+behind `.about__grid`'s background instead of in front of it (a negative `z-index` child
+does not automatically paint behind its *own* parent's background — see gotcha #11,
+which is exactly what broke the first attempt at this). Despite rendering correctly by
+every DOM-level check, it was reverted at the user's request after still looking wrong
+in their real browser — never root-caused, and muddied further by the in-tool
+screenshot testing that session turning out to be independently unreliable at that same
+scrolled position (see gotcha #13). **The panel itself currently has no shadow.** If
+this is revisited, re-read gotchas #11 and #12 first, and verify in a browser tab the
+user can actually see, not just this tool's screenshot capture.
+
+**About copy — replaced the "About" heading with a quote-style layout, per a reference
+image.** `.about__copy` no longer opens with `<h2 class="section-heading">About</h2>`;
+it opens with `.about__label` (a small `- about -` line in `--font-mono`, muted/
+translucent white) followed by `.about__quote` (a large `--font-display` line —
+currently placeholder copy, "Insightful quote that will make people hire me"), with the
+original Lorem ipsum paragraph kept unchanged below both. `.about__quote` is sized via
+`clamp(2.25rem, 5vw, 3.75rem)` — deliberately much larger than `.section-heading`'s
+`clamp(1.75rem, 4vw, 2.5rem)` — specifically to match the reference image's dramatic
+size contrast between headline and body copy. Neither `.about__label` nor
+`.about__quote` carry the hard offset text-shadow the old "About" heading had (the
+`.about .section-heading` override); that rule was deleted outright along with the
+heading it styled, per explicit instruction to remove the shadow when this layout was
+rebuilt. `.about .section-heading` no longer exists as a selector — every *other*
+section's heading still gets the shared red pulse glow from the base `.section-heading`
+rule, completely untouched by any of this.
+
+**About portrait — pixel-art circle, not `border-radius`, moved to the left column.**
+`.about__portrait-frame` used to be a portrait-oriented (4:5) rectangle on the right;
+it's now a square (`aspect-ratio: 1/1`) circle on the left (DOM order swapped,
+`.about__grid`'s desktop `grid-template-columns` flipped from `1.2fr 1fr` to `1fr
+1.2fr` to match), holding a real `<img>` (`assets/images/temp-about-pic.jpg`,
+`object-fit: cover`) instead of the old `Portrait` placeholder label. Its circular
+shape is a hand-computed pixel-art circle via `clip-path: polygon(...)`, matching the
+panel corners' Balatro aesthetic rather than a smooth `border-radius: 50%` (which is
+what it briefly was, in between placeholder and pixel-circle) — generated with a small
+Python script rather than hand-typed, since even at a modest cell count this has far
+too many points to derive reliably by hand (unlike the panel's much smaller 9-cell
+corner), using the same midpoint-circle math as the panel corners
+(`y = round(sqrt(R² − x²))` per column, sampled around all four quadrants and mirrored).
+The cell count (`R`, radius in cells) has already been retuned twice based on feedback
+— first *down* to `R = 14` on a "more pixels" request that turned out to mean the
+opposite of what was built (chunkier/more visibly blocky was requested; a finer,
+more-detailed circle was actually wanted), then corrected *up* to `R = 36` (finer than
+even the original `R = 24` first pass). If asked to retune this again: more cells =
+smaller steps = a more detailed/higher-resolution circle; fewer cells = bigger steps =
+a chunkier, more visibly "pixelated" one — confirm which direction is actually meant
+before picking a number, since "more pixels" is genuinely ambiguous between the two.
+`max-width` is `460px` (up from an initial `360px`), with no border (removed per
+request) — just the image, clipped straight to the pixel-circle shape.
+
+The portrait *does* carry the hard offset shadow (`#102245`, offset left/down) that the
+panel itself lost above — successfully this time. It lives on
+`.about__portrait::before`, not on `.about__portrait-frame::before`:
+`.about__portrait-frame` has its own `clip-path` (the pixel circle), and `clip-path`
+doesn't just shape an element's own background — it clips everything painted for that
+element's entire subtree, including descendants deliberately offset outside its box via
+`transform` (see gotcha #12). A shadow nested inside the frame would get silently
+cropped back down to the frame's own silhouette, hiding exactly the offset sliver it's
+supposed to show. `.about__portrait` (the plain wrapper, no `clip-path` of its own)
+carries the shadow instead, sized with the same `width: 100%; max-width: 460px` as the
+frame so the two boxes always coincide exactly at any viewport width.
 
 **Work carousel.** `#work` no longer uses a 2x2 grid — `.work-carousel` is a
 center-focused slider (Kodak / Zermatt / Twix / Norwich Theatre Royal) that spans the
@@ -475,6 +588,61 @@ blend-mode elements, even though the cursor itself is gone.
     something outside a transformed wrapper" need comes up again, this is the pattern:
     blend on the transformed element, not on its children.
 
+11. **A child's `z-index: -1` does not paint it behind its own parent's background —
+    only behind other normal-flow content in the same stacking context.** Hit building
+    a hard offset "sticker" shadow for the About panel: `.about__pin` had its own
+    `background-color` *and* an `::before` shadow (`z-index: -1`, offset via
+    `transform`), and the shadow rendered ON TOP of the panel's background instead of
+    peeking out from behind it. Per the CSS2.1 painting-order spec, the paint order
+    inside a stacking context is (1) the stacking-context root's *own* background/
+    border, painted first/bottom-most, then (2) negative-`z-index` descendants, then
+    (3) normal in-flow descendants — so a negative-`z-index` child is only guaranteed to
+    sit behind *other* content in that context, never behind the root element's own
+    background, which already painted before it. **Fix: don't give the shadow's parent
+    a background of its own at all.** For the About panel this meant moving the
+    panel's actual visible `background-color`/`clip-path` off `.about__pin` and onto
+    `.about__grid` — a plain in-flow *child*, not the stacking-context root — so
+    `.about__pin::before` (still `z-index: -1`) now correctly paints behind it. If a
+    similar shadow is ever added elsewhere, check whether the element carrying the
+    shadow pseudo-element also carries the visible background it's supposed to sit
+    behind — if so, this bug will reproduce.
+
+12. **`clip-path` clips an element's entire subtree, not just its own box — including
+    descendants deliberately offset outside that box via `transform`.** Hit twice: once
+    assumed (correctly, as a precaution) while building the About-portrait shadow, and
+    implicitly true of every `clip-path` in this codebase. A shadow pseudo-element
+    positioned as a *descendant* of a `clip-path`'d element — e.g. nested inside
+    `.about__portrait-frame`, which carries the pixel-circle `clip-path` — gets cropped
+    back down to that same clipped silhouette, even where the shadow's own `transform`
+    pushes it outside the frame's box; `clip-path` isn't just an "overflow boundary for
+    this element's own background," it constrains everything painted for the whole
+    subtree, the same way `overflow: hidden` does but shaped as an arbitrary polygon
+    instead of a rectangle. **Fix: put the shadow on a plain, `clip-path`-free sibling
+    wrapper instead** — `.about__portrait` (no `clip-path` of its own) carries the
+    portrait's shadow, sized to exactly match `.about__portrait-frame` (same `width`/
+    `max-width`) so the two boxes still coincide. Any future shadow-behind-a-clipped-
+    shape effect needs this same wrapper-not-descendant structure.
+
+13. **This tool's Browser-pane screenshots can silently go stale or show a corrupted
+    frame when the pane isn't actually displayed/focused on the user's side — treat
+    unexplained solid-black or visibly-misplaced-fixed-header screenshots as a tooling
+    artifact to rule out, not proof the page is broken.** Surfaced while debugging the
+    About-panel shadow: screenshots at a scrolled position repeatedly came back solid
+    black, or with the fixed header rendered at the *bottom* of the frame instead of the
+    top — reproduced consistently across navigation methods (real scroll gestures, JS
+    `scrollTo`, even a plain anchor-link page load), which briefly looked like a genuine
+    renderer bug. It wasn't: `getBoundingClientRect()`/`getComputedStyle()` calls at the
+    exact same moment consistently showed correct layout (header still at `top: 0`,
+    correct colours/positions everywhere), and the screenshot tool itself eventually
+    started returning an explicit `"the Browser pane is not displayed"` error on the
+    same tab — confirming the earlier "black" captures were stale last-composited frames
+    from before the pane lost visibility, not live renders. **When a screenshot looks
+    wrong in a way live DOM inspection (`javascript_tool` + `getComputedStyle`/
+    `getBoundingClientRect`) doesn't confirm, trust the DOM inspection** and treat the
+    screenshot as unreliable for that state, the same way gotcha #4's automated-Chromium
+    caveat already applies to scroll-linked *effects* — this is the same caveat applied
+    to the *screenshot capture itself*, not just to what's being tested.
+
 ## Conventions
 
 - Work section-by-section, checking in before moving to the next section — that's how
@@ -488,7 +656,16 @@ blend-mode elements, even though the cursor itself is gone.
   above hover glass → About panel trial (pixel corners, inset gutter) → swirl and
   scanlines made persistent/sitewide → hero/About seam shadow dropped → hero text
   inversion fixed + About panel made the visible thing that covers hero text → custom
-  cursor removed entirely).
+  cursor removed entirely → py vs python3 launch.json fix → About panel made near-
+  full-height + pixel corners reworked into an actual curved silhouette (equal steps →
+  wrong-circle formula → correct chunky-step circle) → About panel side margins
+  tightened → About heading given a hard offset shadow, then a solid-block version →
+  swirl retuned to a blue palette from a reference photo → About redesigned around a
+  quote-style headline (mono label + large quote line, old "About" heading and its
+  shadow removed) → About portrait moved to the left column and made circular, then
+  pixel-art-circular (real photo wired in, retuned from chunkier to finer pixels) →
+  About-panel hard shadow attempted twice (drop-shadow, then a working but
+  user-reverted `::before` version) → About-portrait hard shadow added successfully).
 - Reference designs are for *flow/behavior* inspiration only, not literal visual copying
   (e.g. midu.design was referenced for the scroll-parallax feel, not its actual layout;
   viclopez.art was referenced for the scroll-stacking cards' "next section covers the
@@ -510,7 +687,11 @@ blend-mode elements, even though the cursor itself is gone.
   `work/norwich-theatre-royal.html`) — linked from `index.html` but files don't exist yet.
 - Personal project pages (`personal/film.html`, `personal/photo.html`, `personal/3d.html`)
   — same situation.
-- Portrait photo for About (currently a placeholder frame).
+- Portrait photo for About — has a real photo now (`assets/images/temp-about-pic.jpg`),
+  but the filename says "temp" for a reason; confirm with the user whether it's staying
+  or still a stand-in before treating it as final.
+- About's quote copy ("Insightful quote that will make people hire me") and its `-
+  about -` label are both placeholder text, not final copy.
 - Real contact/social links (currently `mailto:jack@example.com` and `href="#"` placeholders).
 - Work tile imagery — Zermatt now has a real photo (`assets/images/Zermatt.jpg`) and logo
   (`assets/images/zermatt-logo.png`); Kodak, Twix, and Norwich Theatre Royal are still

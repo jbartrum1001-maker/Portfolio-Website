@@ -474,7 +474,7 @@ body {
      dark band across what should be one uninterrupted background. */
   position: relative;
   overflow: hidden;
-  padding-block: var(--space-xl);
+  padding-block: var(--space-md);
 }
 
 .about__pin {
@@ -482,68 +482,652 @@ body {
      .site-swirl (fixed, shared sitewide) shows through as a gutter on
      either side. Corner shape is a hand-built pixel staircase
      (clip-path), not border-radius, per the Balatro reference: a
-     blocky, stepped corner cut rather than a smooth curve.
-     --pixel-corner-step is the size of each of the 3 steps (3 steps ×
-     step = total corner cut); tune that one variable to make the
-     corners chunkier/finer. */
-  --pixel-corner-step: 10px;
+     blocky, pixelated corner cut, but shaped to actually read as
+     rounded rather than a triangular chamfer.
+
+     Equal-size steps (the first version of this) ALWAYS trace a
+     straight 45° line no matter how many of them you use — more steps
+     just makes a smoother diagonal, never a curve, because a uniform
+     staircase is geometrically a straight line at any resolution. A
+     second version sampled a real quarter-circle per-cell, but used
+     the wrong circle (centered on the panel's own corner instead of
+     inset by the radius), which put the wide flat run at the wrong
+     end and still read as closer to a chamfer than a curve.
+
+     This version uses the actual rounded-rect corner circle — centered
+     R cells in from both edges, R = 9 — and, per feedback, deliberately
+     groups cells into chunky multi-cell blocks (double/triple/
+     quadruple-stacked) rather than one cell per step: near the edge
+     where the arc meets it at a steep (near-vertical) angle, the first
+     step alone drops 4 cells; the next drops 2; then three single-cell
+     steps carry the middle of the curve (where the slope crosses
+     45°); then two widening flat-ish steps (2 cells, then 4) carry it
+     into the edge it meets at a shallow (near-horizontal) angle. That
+     step pattern — (Δx 1, Δy 4), (1, 2), (1, 1), (2, 1), (4, 1) — is
+     what actually produces a curved silhouette instead of a diagonal
+     one; --pixel-corner-step is just the pixel size of one cell (9
+     cells × step = total corner cut). */
+  --pixel-corner-step: 6px;
   position: relative;
   will-change: transform;
-  margin-inline: clamp(24px, 8vw, 140px);
+  min-height: calc(100vh - var(--nav-height) - var(--space-lg));
+  display: flex;
+  align-items: center;
+  margin-inline: clamp(16px, 4vw, 72px);
   padding: var(--space-xl) var(--space-lg);
-  background-color: var(--color-bg);
+  /* Trial panel color, not the sitewide --color-bg — a placeholder
+     ahead of a full colour scheme pass later. */
+  background-color: #3d6989;
   clip-path: polygon(
-    0 calc(var(--pixel-corner-step) * 3),
-    var(--pixel-corner-step) calc(var(--pixel-corner-step) * 3),
-    var(--pixel-corner-step) calc(var(--pixel-corner-step) * 2),
-    calc(var(--pixel-corner-step) * 2) calc(var(--pixel-corner-step) * 2),
-    calc(var(--pixel-corner-step) * 2) var(--pixel-corner-step),
-    calc(var(--pixel-corner-step) * 3) var(--pixel-corner-step),
-    calc(var(--pixel-corner-step) * 3) 0,
-    calc(100% - var(--pixel-corner-step) * 3) 0,
-    calc(100% - var(--pixel-corner-step) * 3) var(--pixel-corner-step),
-    calc(100% - var(--pixel-corner-step) * 2) var(--pixel-corner-step),
-    calc(100% - var(--pixel-corner-step) * 2) calc(var(--pixel-corner-step) * 2),
-    calc(100% - var(--pixel-corner-step)) calc(var(--pixel-corner-step) * 2),
-    calc(100% - var(--pixel-corner-step)) calc(var(--pixel-corner-step) * 3),
-    100% calc(var(--pixel-corner-step) * 3),
-    100% calc(100% - var(--pixel-corner-step) * 3),
-    calc(100% - var(--pixel-corner-step)) calc(100% - var(--pixel-corner-step) * 3),
-    calc(100% - var(--pixel-corner-step)) calc(100% - var(--pixel-corner-step) * 2),
-    calc(100% - var(--pixel-corner-step) * 2) calc(100% - var(--pixel-corner-step) * 2),
-    calc(100% - var(--pixel-corner-step) * 2) calc(100% - var(--pixel-corner-step)),
-    calc(100% - var(--pixel-corner-step) * 3) calc(100% - var(--pixel-corner-step)),
-    calc(100% - var(--pixel-corner-step) * 3) 100%,
-    calc(var(--pixel-corner-step) * 3) 100%,
-    calc(var(--pixel-corner-step) * 3) calc(100% - var(--pixel-corner-step)),
-    calc(var(--pixel-corner-step) * 2) calc(100% - var(--pixel-corner-step)),
-    calc(var(--pixel-corner-step) * 2) calc(100% - var(--pixel-corner-step) * 2),
-    var(--pixel-corner-step) calc(100% - var(--pixel-corner-step) * 2),
-    var(--pixel-corner-step) calc(100% - var(--pixel-corner-step) * 3),
-    0 calc(100% - var(--pixel-corner-step) * 3)
+    0 calc(var(--pixel-corner-step) * 9),
+    calc(var(--pixel-corner-step) * 1) calc(var(--pixel-corner-step) * 9),
+    calc(var(--pixel-corner-step) * 1) calc(var(--pixel-corner-step) * 5),
+    calc(var(--pixel-corner-step) * 2) calc(var(--pixel-corner-step) * 5),
+    calc(var(--pixel-corner-step) * 2) calc(var(--pixel-corner-step) * 3),
+    calc(var(--pixel-corner-step) * 3) calc(var(--pixel-corner-step) * 3),
+    calc(var(--pixel-corner-step) * 3) calc(var(--pixel-corner-step) * 2),
+    calc(var(--pixel-corner-step) * 5) calc(var(--pixel-corner-step) * 2),
+    calc(var(--pixel-corner-step) * 5) calc(var(--pixel-corner-step) * 1),
+    calc(var(--pixel-corner-step) * 9) calc(var(--pixel-corner-step) * 1),
+    calc(var(--pixel-corner-step) * 9) 0,
+    calc(100% - var(--pixel-corner-step) * 9) 0,
+    calc(100% - var(--pixel-corner-step) * 9) calc(var(--pixel-corner-step) * 1),
+    calc(100% - var(--pixel-corner-step) * 5) calc(var(--pixel-corner-step) * 1),
+    calc(100% - var(--pixel-corner-step) * 5) calc(var(--pixel-corner-step) * 2),
+    calc(100% - var(--pixel-corner-step) * 3) calc(var(--pixel-corner-step) * 2),
+    calc(100% - var(--pixel-corner-step) * 3) calc(var(--pixel-corner-step) * 3),
+    calc(100% - var(--pixel-corner-step) * 2) calc(var(--pixel-corner-step) * 3),
+    calc(100% - var(--pixel-corner-step) * 2) calc(var(--pixel-corner-step) * 5),
+    calc(100% - var(--pixel-corner-step) * 1) calc(var(--pixel-corner-step) * 5),
+    calc(100% - var(--pixel-corner-step) * 1) calc(var(--pixel-corner-step) * 9),
+    100% calc(var(--pixel-corner-step) * 9),
+    100% calc(100% - var(--pixel-corner-step) * 9),
+    calc(100% - var(--pixel-corner-step) * 1) calc(100% - var(--pixel-corner-step) * 9),
+    calc(100% - var(--pixel-corner-step) * 1) calc(100% - var(--pixel-corner-step) * 5),
+    calc(100% - var(--pixel-corner-step) * 2) calc(100% - var(--pixel-corner-step) * 5),
+    calc(100% - var(--pixel-corner-step) * 2) calc(100% - var(--pixel-corner-step) * 3),
+    calc(100% - var(--pixel-corner-step) * 3) calc(100% - var(--pixel-corner-step) * 3),
+    calc(100% - var(--pixel-corner-step) * 3) calc(100% - var(--pixel-corner-step) * 2),
+    calc(100% - var(--pixel-corner-step) * 5) calc(100% - var(--pixel-corner-step) * 2),
+    calc(100% - var(--pixel-corner-step) * 5) calc(100% - var(--pixel-corner-step) * 1),
+    calc(100% - var(--pixel-corner-step) * 9) calc(100% - var(--pixel-corner-step) * 1),
+    calc(100% - var(--pixel-corner-step) * 9) 100%,
+    calc(var(--pixel-corner-step) * 9) 100%,
+    calc(var(--pixel-corner-step) * 9) calc(100% - var(--pixel-corner-step) * 1),
+    calc(var(--pixel-corner-step) * 5) calc(100% - var(--pixel-corner-step) * 1),
+    calc(var(--pixel-corner-step) * 5) calc(100% - var(--pixel-corner-step) * 2),
+    calc(var(--pixel-corner-step) * 3) calc(100% - var(--pixel-corner-step) * 2),
+    calc(var(--pixel-corner-step) * 3) calc(100% - var(--pixel-corner-step) * 3),
+    calc(var(--pixel-corner-step) * 2) calc(100% - var(--pixel-corner-step) * 3),
+    calc(var(--pixel-corner-step) * 2) calc(100% - var(--pixel-corner-step) * 5),
+    calc(var(--pixel-corner-step) * 1) calc(100% - var(--pixel-corner-step) * 5),
+    calc(var(--pixel-corner-step) * 1) calc(100% - var(--pixel-corner-step) * 9),
+    0 calc(100% - var(--pixel-corner-step) * 9)
   );
 }
 
 .about__grid {
+  /* width: 100% — .about__pin is a flex container (for vertical
+     centering), and a flex item shrinks to its content width by
+     default instead of filling the row, which would collapse this
+     grid down to its narrowest content. */
+  width: 100%;
   display: grid;
   grid-template-columns: 1fr;
   gap: var(--space-lg);
 }
 
 .about__copy p {
-  color: var(--color-muted);
+  color: #ffffff;
   max-width: 60ch;
 }
 
-.about__portrait-frame {
-  aspect-ratio: 4 / 5;
+.about__label {
+  font-family: var(--font-mono);
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: var(--space-xs);
+}
+
+.about__quote {
+  /* Replaces the old "About" .section-heading — no shadow, no glow
+     animation, just a plain large Playfair Display line. Sized well
+     above the body paragraph (.about__copy p, unstyled/default ~1rem)
+     so the two read at a similar size ratio to the reference image's
+     headline-vs-body contrast, rather than the more modest gap
+     .section-heading's clamp(1.75rem, 4vw, 2.5rem) gave it. */
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(2.25rem, 5vw, 3.75rem);
+  line-height: 1.05;
+  color: #ffffff;
+  margin-bottom: var(--space-lg);
+}
+
+.about__portrait {
+  /* Sizing wrapper for the shadow below — matches .about__portrait-frame's
+     own width/max-width exactly (at every viewport, mobile stacked or
+     desktop side-by-side) so .about__portrait::before's inset: 0 lines
+     up with the frame's actual rendered circle, not a wider/narrower
+     wrapper box. position: relative anchors that pseudo-element. */
+  position: relative;
   width: 100%;
-  max-width: 360px;
+  max-width: 460px;
+}
+
+.about__portrait::before {
+  /* Same hard offset-shadow idea as .about .section-heading used to
+     use (left/down, 0 blur, #102245) — but this has to live on
+     .about__portrait (a plain wrapper with no clip-path of its own),
+     not on .about__portrait-frame itself: clip-path doesn't just
+     shape an element's own background, it clips everything painted
+     for that element's whole subtree — descendants included, even
+     ones deliberately offset outside its box via transform. A
+     ::before shadow nested inside .about__portrait-frame would get
+     silently cropped back down to the frame's own pixel-circle
+     silhouette, hiding exactly the offset sliver that's supposed to
+     peek out. Sitting one level up, on the frame's plain sibling-free
+     wrapper, avoids that entirely. */
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  transform: translate(-10px, 10px);
+  background-color: #102245;
+  clip-path: polygon(
+    50.0% 0.0%,
+    51.389% 0.0%,
+    52.778% 0.0%,
+    54.167% 0.0%,
+    55.556% 0.0%,
+    56.944% 0.0%,
+    58.333% 0.0%,
+    58.333% 1.389%,
+    59.722% 1.389%,
+    61.111% 1.389%,
+    62.5% 1.389%,
+    63.889% 1.389%,
+    65.278% 1.389%,
+    65.278% 2.778%,
+    66.667% 2.778%,
+    68.056% 2.778%,
+    69.444% 2.778%,
+    69.444% 4.167%,
+    70.833% 4.167%,
+    72.222% 4.167%,
+    72.222% 5.556%,
+    73.611% 5.556%,
+    75.0% 5.556%,
+    75.0% 6.944%,
+    76.389% 6.944%,
+    77.778% 6.944%,
+    77.778% 8.333%,
+    79.167% 8.333%,
+    79.167% 9.722%,
+    80.556% 9.722%,
+    80.556% 11.111%,
+    81.944% 11.111%,
+    83.333% 11.111%,
+    83.333% 12.5%,
+    84.722% 12.5%,
+    84.722% 13.889%,
+    86.111% 13.889%,
+    86.111% 15.278%,
+    87.5% 15.278%,
+    87.5% 16.667%,
+    88.889% 16.667%,
+    88.889% 18.056%,
+    90.278% 18.056%,
+    90.278% 20.833%,
+    91.667% 20.833%,
+    91.667% 22.222%,
+    93.056% 22.222%,
+    93.056% 25.0%,
+    94.444% 25.0%,
+    94.444% 27.778%,
+    95.833% 27.778%,
+    95.833% 30.556%,
+    97.222% 30.556%,
+    97.222% 33.333%,
+    98.611% 33.333%,
+    98.611% 38.889%,
+    100.0% 38.889%,
+    100.0% 50.0%,
+    100.0% 61.111%,
+    98.611% 61.111%,
+    98.611% 66.667%,
+    97.222% 66.667%,
+    97.222% 69.444%,
+    95.833% 69.444%,
+    95.833% 72.222%,
+    94.444% 72.222%,
+    94.444% 75.0%,
+    93.056% 75.0%,
+    93.056% 77.778%,
+    91.667% 77.778%,
+    91.667% 79.167%,
+    90.278% 79.167%,
+    90.278% 81.944%,
+    88.889% 81.944%,
+    88.889% 83.333%,
+    87.5% 83.333%,
+    87.5% 84.722%,
+    86.111% 84.722%,
+    86.111% 86.111%,
+    84.722% 86.111%,
+    84.722% 87.5%,
+    83.333% 87.5%,
+    83.333% 88.889%,
+    81.944% 88.889%,
+    80.556% 88.889%,
+    80.556% 90.278%,
+    79.167% 90.278%,
+    79.167% 91.667%,
+    77.778% 91.667%,
+    77.778% 93.056%,
+    76.389% 93.056%,
+    75.0% 93.056%,
+    75.0% 94.444%,
+    73.611% 94.444%,
+    72.222% 94.444%,
+    72.222% 95.833%,
+    70.833% 95.833%,
+    69.444% 95.833%,
+    69.444% 97.222%,
+    68.056% 97.222%,
+    66.667% 97.222%,
+    65.278% 97.222%,
+    65.278% 98.611%,
+    63.889% 98.611%,
+    62.5% 98.611%,
+    61.111% 98.611%,
+    59.722% 98.611%,
+    58.333% 98.611%,
+    58.333% 100.0%,
+    56.944% 100.0%,
+    55.556% 100.0%,
+    54.167% 100.0%,
+    52.778% 100.0%,
+    51.389% 100.0%,
+    50.0% 100.0%,
+    48.611% 100.0%,
+    47.222% 100.0%,
+    45.833% 100.0%,
+    44.444% 100.0%,
+    43.056% 100.0%,
+    41.667% 100.0%,
+    41.667% 98.611%,
+    40.278% 98.611%,
+    38.889% 98.611%,
+    37.5% 98.611%,
+    36.111% 98.611%,
+    34.722% 98.611%,
+    34.722% 97.222%,
+    33.333% 97.222%,
+    31.944% 97.222%,
+    30.556% 97.222%,
+    30.556% 95.833%,
+    29.167% 95.833%,
+    27.778% 95.833%,
+    27.778% 94.444%,
+    26.389% 94.444%,
+    25.0% 94.444%,
+    25.0% 93.056%,
+    23.611% 93.056%,
+    22.222% 93.056%,
+    22.222% 91.667%,
+    20.833% 91.667%,
+    20.833% 90.278%,
+    19.444% 90.278%,
+    19.444% 88.889%,
+    18.056% 88.889%,
+    16.667% 88.889%,
+    16.667% 87.5%,
+    15.278% 87.5%,
+    15.278% 86.111%,
+    13.889% 86.111%,
+    13.889% 84.722%,
+    12.5% 84.722%,
+    12.5% 83.333%,
+    11.111% 83.333%,
+    11.111% 81.944%,
+    9.722% 81.944%,
+    9.722% 79.167%,
+    8.333% 79.167%,
+    8.333% 77.778%,
+    6.944% 77.778%,
+    6.944% 75.0%,
+    5.556% 75.0%,
+    5.556% 72.222%,
+    4.167% 72.222%,
+    4.167% 69.444%,
+    2.778% 69.444%,
+    2.778% 66.667%,
+    1.389% 66.667%,
+    1.389% 61.111%,
+    0.0% 61.111%,
+    0.0% 50.0%,
+    0.0% 38.889%,
+    1.389% 38.889%,
+    1.389% 33.333%,
+    2.778% 33.333%,
+    2.778% 30.556%,
+    4.167% 30.556%,
+    4.167% 27.778%,
+    5.556% 27.778%,
+    5.556% 25.0%,
+    6.944% 25.0%,
+    6.944% 22.222%,
+    8.333% 22.222%,
+    8.333% 20.833%,
+    9.722% 20.833%,
+    9.722% 18.056%,
+    11.111% 18.056%,
+    11.111% 16.667%,
+    12.5% 16.667%,
+    12.5% 15.278%,
+    13.889% 15.278%,
+    13.889% 13.889%,
+    15.278% 13.889%,
+    15.278% 12.5%,
+    16.667% 12.5%,
+    16.667% 11.111%,
+    18.056% 11.111%,
+    19.444% 11.111%,
+    19.444% 9.722%,
+    20.833% 9.722%,
+    20.833% 8.333%,
+    22.222% 8.333%,
+    22.222% 6.944%,
+    23.611% 6.944%,
+    25.0% 6.944%,
+    25.0% 5.556%,
+    26.389% 5.556%,
+    27.778% 5.556%,
+    27.778% 4.167%,
+    29.167% 4.167%,
+    30.556% 4.167%,
+    30.556% 2.778%,
+    31.944% 2.778%,
+    33.333% 2.778%,
+    34.722% 2.778%,
+    34.722% 1.389%,
+    36.111% 1.389%,
+    37.5% 1.389%,
+    38.889% 1.389%,
+    40.278% 1.389%,
+    41.667% 1.389%,
+    41.667% 0.0%,
+    43.056% 0.0%,
+    44.444% 0.0%,
+    45.833% 0.0%,
+    47.222% 0.0%,
+    48.611% 0.0%
+  );
+}
+
+.about__portrait-frame {
+  /* Pixelated circle (Balatro/pixel-art style, matching .about__grid's
+     pixel-corner clip-path elsewhere) instead of a smooth
+     border-radius: 50%. Points are pre-computed (radius = 36 cells,
+     midpoint-circle style: y = round(sqrt(R² - x²)) per column,
+     mirrored into all four quadrants) rather than hand-typed — well
+     past what's practical to derive by hand without a transcription
+     error, unlike the panel's much smaller 9-cell corner. Bumped up
+     from an initial 24-cell pass (finer/more detailed still than
+     that) after a too-chunky 14-cell version misread "add more
+     pixels" as "make the pixelation chunkier" rather than "make the
+     circle more detailed/higher-resolution" — more cells = smaller,
+     more numerous steps = a finer approximation of a true circle.
+     All in %, so it scales with the element automatically (no
+     --pixel-corner-step var needed, since aspect-ratio: 1/1 keeps
+     this element square at any size). */
+  aspect-ratio: 1 / 1;
+  clip-path: polygon(
+    50.0% 0.0%,
+    51.389% 0.0%,
+    52.778% 0.0%,
+    54.167% 0.0%,
+    55.556% 0.0%,
+    56.944% 0.0%,
+    58.333% 0.0%,
+    58.333% 1.389%,
+    59.722% 1.389%,
+    61.111% 1.389%,
+    62.5% 1.389%,
+    63.889% 1.389%,
+    65.278% 1.389%,
+    65.278% 2.778%,
+    66.667% 2.778%,
+    68.056% 2.778%,
+    69.444% 2.778%,
+    69.444% 4.167%,
+    70.833% 4.167%,
+    72.222% 4.167%,
+    72.222% 5.556%,
+    73.611% 5.556%,
+    75.0% 5.556%,
+    75.0% 6.944%,
+    76.389% 6.944%,
+    77.778% 6.944%,
+    77.778% 8.333%,
+    79.167% 8.333%,
+    79.167% 9.722%,
+    80.556% 9.722%,
+    80.556% 11.111%,
+    81.944% 11.111%,
+    83.333% 11.111%,
+    83.333% 12.5%,
+    84.722% 12.5%,
+    84.722% 13.889%,
+    86.111% 13.889%,
+    86.111% 15.278%,
+    87.5% 15.278%,
+    87.5% 16.667%,
+    88.889% 16.667%,
+    88.889% 18.056%,
+    90.278% 18.056%,
+    90.278% 20.833%,
+    91.667% 20.833%,
+    91.667% 22.222%,
+    93.056% 22.222%,
+    93.056% 25.0%,
+    94.444% 25.0%,
+    94.444% 27.778%,
+    95.833% 27.778%,
+    95.833% 30.556%,
+    97.222% 30.556%,
+    97.222% 33.333%,
+    98.611% 33.333%,
+    98.611% 38.889%,
+    100.0% 38.889%,
+    100.0% 50.0%,
+    100.0% 61.111%,
+    98.611% 61.111%,
+    98.611% 66.667%,
+    97.222% 66.667%,
+    97.222% 69.444%,
+    95.833% 69.444%,
+    95.833% 72.222%,
+    94.444% 72.222%,
+    94.444% 75.0%,
+    93.056% 75.0%,
+    93.056% 77.778%,
+    91.667% 77.778%,
+    91.667% 79.167%,
+    90.278% 79.167%,
+    90.278% 81.944%,
+    88.889% 81.944%,
+    88.889% 83.333%,
+    87.5% 83.333%,
+    87.5% 84.722%,
+    86.111% 84.722%,
+    86.111% 86.111%,
+    84.722% 86.111%,
+    84.722% 87.5%,
+    83.333% 87.5%,
+    83.333% 88.889%,
+    81.944% 88.889%,
+    80.556% 88.889%,
+    80.556% 90.278%,
+    79.167% 90.278%,
+    79.167% 91.667%,
+    77.778% 91.667%,
+    77.778% 93.056%,
+    76.389% 93.056%,
+    75.0% 93.056%,
+    75.0% 94.444%,
+    73.611% 94.444%,
+    72.222% 94.444%,
+    72.222% 95.833%,
+    70.833% 95.833%,
+    69.444% 95.833%,
+    69.444% 97.222%,
+    68.056% 97.222%,
+    66.667% 97.222%,
+    65.278% 97.222%,
+    65.278% 98.611%,
+    63.889% 98.611%,
+    62.5% 98.611%,
+    61.111% 98.611%,
+    59.722% 98.611%,
+    58.333% 98.611%,
+    58.333% 100.0%,
+    56.944% 100.0%,
+    55.556% 100.0%,
+    54.167% 100.0%,
+    52.778% 100.0%,
+    51.389% 100.0%,
+    50.0% 100.0%,
+    48.611% 100.0%,
+    47.222% 100.0%,
+    45.833% 100.0%,
+    44.444% 100.0%,
+    43.056% 100.0%,
+    41.667% 100.0%,
+    41.667% 98.611%,
+    40.278% 98.611%,
+    38.889% 98.611%,
+    37.5% 98.611%,
+    36.111% 98.611%,
+    34.722% 98.611%,
+    34.722% 97.222%,
+    33.333% 97.222%,
+    31.944% 97.222%,
+    30.556% 97.222%,
+    30.556% 95.833%,
+    29.167% 95.833%,
+    27.778% 95.833%,
+    27.778% 94.444%,
+    26.389% 94.444%,
+    25.0% 94.444%,
+    25.0% 93.056%,
+    23.611% 93.056%,
+    22.222% 93.056%,
+    22.222% 91.667%,
+    20.833% 91.667%,
+    20.833% 90.278%,
+    19.444% 90.278%,
+    19.444% 88.889%,
+    18.056% 88.889%,
+    16.667% 88.889%,
+    16.667% 87.5%,
+    15.278% 87.5%,
+    15.278% 86.111%,
+    13.889% 86.111%,
+    13.889% 84.722%,
+    12.5% 84.722%,
+    12.5% 83.333%,
+    11.111% 83.333%,
+    11.111% 81.944%,
+    9.722% 81.944%,
+    9.722% 79.167%,
+    8.333% 79.167%,
+    8.333% 77.778%,
+    6.944% 77.778%,
+    6.944% 75.0%,
+    5.556% 75.0%,
+    5.556% 72.222%,
+    4.167% 72.222%,
+    4.167% 69.444%,
+    2.778% 69.444%,
+    2.778% 66.667%,
+    1.389% 66.667%,
+    1.389% 61.111%,
+    0.0% 61.111%,
+    0.0% 50.0%,
+    0.0% 38.889%,
+    1.389% 38.889%,
+    1.389% 33.333%,
+    2.778% 33.333%,
+    2.778% 30.556%,
+    4.167% 30.556%,
+    4.167% 27.778%,
+    5.556% 27.778%,
+    5.556% 25.0%,
+    6.944% 25.0%,
+    6.944% 22.222%,
+    8.333% 22.222%,
+    8.333% 20.833%,
+    9.722% 20.833%,
+    9.722% 18.056%,
+    11.111% 18.056%,
+    11.111% 16.667%,
+    12.5% 16.667%,
+    12.5% 15.278%,
+    13.889% 15.278%,
+    13.889% 13.889%,
+    15.278% 13.889%,
+    15.278% 12.5%,
+    16.667% 12.5%,
+    16.667% 11.111%,
+    18.056% 11.111%,
+    19.444% 11.111%,
+    19.444% 9.722%,
+    20.833% 9.722%,
+    20.833% 8.333%,
+    22.222% 8.333%,
+    22.222% 6.944%,
+    23.611% 6.944%,
+    25.0% 6.944%,
+    25.0% 5.556%,
+    26.389% 5.556%,
+    27.778% 5.556%,
+    27.778% 4.167%,
+    29.167% 4.167%,
+    30.556% 4.167%,
+    30.556% 2.778%,
+    31.944% 2.778%,
+    33.333% 2.778%,
+    34.722% 2.778%,
+    34.722% 1.389%,
+    36.111% 1.389%,
+    37.5% 1.389%,
+    38.889% 1.389%,
+    40.278% 1.389%,
+    41.667% 1.389%,
+    41.667% 0.0%,
+    43.056% 0.0%,
+    44.444% 0.0%,
+    45.833% 0.0%,
+    47.222% 0.0%,
+    48.611% 0.0%
+  );
+  width: 100%;
+  max-width: 460px;
   background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+}
+
+.about__portrait-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .placeholder-label {
@@ -922,13 +1506,20 @@ body {
 ----------------------------------------- */
 @media (min-width: 769px) {
   .about__grid {
-    grid-template-columns: 1.2fr 1fr;
+    /* Portrait now comes first in the markup (left column, per the
+       reference layout) with copy second (right column) — ratio kept
+       the same as before, just mirrored. column-gap override (row-gap
+       stays --space-lg, from the base .about__grid gap, for the
+       mobile stacked layout) pulls the portrait and copy closer
+       together than that default allows. */
+    grid-template-columns: 1fr 1.2fr;
     align-items: center;
+    column-gap: var(--space-md);
   }
 
   .about__portrait {
     display: flex;
-    justify-content: flex-end;
+    justify-content: flex-start;
   }
 
   .cv__content {
