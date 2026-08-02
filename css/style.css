@@ -95,6 +95,27 @@ body {
 }
 
 /* -----------------------------------------
+   SITE-WIDE SWIRL BACKGROUND
+----------------------------------------- */
+/* The single persistent WebGL swirl (js/main.js), living at the body
+   level rather than inside any one section. position: fixed here means
+   it ignores every section's own overflow: hidden / transform entirely
+   (fixed elements escape ancestor clipping/scroll unless an ancestor
+   sets transform/filter/perspective, and none of html/body/main do) —
+   same "escapes everything" trick .bottom-glass already relies on.
+   Sections that want it visible just need a transparent background of
+   their own (see .hero__pin, .about); anything opaque painted in a
+   normal (non-negative) z-index — which is every section by default —
+   naturally paints over this without any extra effort. */
+.site-swirl {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  filter: brightness(0.5) saturate(1.1);
+}
+
+/* -----------------------------------------
    SITE HEADER / NAV
 ----------------------------------------- */
 .site-header {
@@ -244,7 +265,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #060606;
+  /* No background-color here on purpose — .site-swirl (fixed, body
+     level, behind everything) needs to show through the hero, not get
+     hidden behind an opaque fallback. */
   text-align: center;
   isolation: isolate;
   will-change: transform;
@@ -319,19 +342,6 @@ body {
   }
 }
 */
-
-/* Swirl background — WebGL canvas container, replaces the blob glow
-   above. Sits behind .hero__inner/.hero__grain via z-index: -1, same
-   isolation trick the blob relied on (see gotcha #2 in CLAUDE.md) —
-   .hero__pin already has isolation: isolate, so no z-index is needed
-   on .hero__inner to keep it painting on top. */
-.hero__swirl {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  filter: brightness(0.5) saturate(1.1);
-}
 
 .hero__inner {
   padding-inline: var(--gutter);
@@ -425,38 +435,25 @@ body {
      itself has fully scrolled past — same relationship as .hero /
      .hero__pin above.
 
-     isolation: isolate is new here (trial — see .about__swirl below):
-     it lets .about__swirl sit at z-index: -1 and paint correctly behind
-     .about__pin without needing a z-index on .about__pin itself, same
-     reasoning as gotcha #2 in CLAUDE.md for the hero blob/swirl. */
+     No background-color here on purpose (was var(--color-bg) before
+     the persistent .site-swirl trial) — the section needs to be
+     see-through so the shared fixed swirl shows in the gutter around
+     .about__pin's panel, same reasoning as .hero__pin. */
   position: relative;
   overflow: hidden;
-  isolation: isolate;
   padding-block: var(--space-xl);
-  background-color: var(--color-bg);
   box-shadow: 0 -80px 120px -30px rgba(0, 0, 0, 0.7);
-}
-
-/* TRIAL — persistent swirl background + inset "panel" content, About
-   only for now. Full section backdrop (siblings of .about__pin, not
-   nested inside it, so it spans the whole section width while the
-   panel sits narrower on top) — same SwirlBackground instance pattern
-   as .hero__swirl, own instance wired up in js/main.js. */
-.about__swirl {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
 }
 
 .about__pin {
   /* The "panel" — solid background inset from the section edges so
-     .about__swirl shows through as a gutter on either side. Corner
-     shape is a hand-built pixel staircase (clip-path), not
-     border-radius, per the Balatro reference: a blocky, stepped
-     corner cut rather than a smooth curve. --pixel-corner-step is the
-     size of each of the 3 steps (3 steps × step = total corner cut);
-     tune that one variable to make the corners chunkier/finer. */
+     .site-swirl (fixed, shared sitewide) shows through as a gutter on
+     either side. Corner shape is a hand-built pixel staircase
+     (clip-path), not border-radius, per the Balatro reference: a
+     blocky, stepped corner cut rather than a smooth curve.
+     --pixel-corner-step is the size of each of the 3 steps (3 steps ×
+     step = total corner cut); tune that one variable to make the
+     corners chunkier/finer. */
   --pixel-corner-step: 10px;
   position: relative;
   will-change: transform;
