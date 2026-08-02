@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SwirlBackground — usage example</title>
+<style>
+  html, body { margin: 0; height: 100%; }
+
+  /* the container just needs a size — full page here, but it works
+     just as well confined to a hero section, a card, anything */
+  #swirl-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+  }
+
+  /* your real content sits above it with a higher z-index */
+  .content {
+    position: relative;
+    z-index: 2;
+    color: #fff;
+    padding: 48px;
+    font-family: sans-serif;
+  }
+
+  /* optional CRT scanlines — pure CSS, no JS, independent of the canvas.
+     sits between the background (z-index 0) and your content (z-index 2) */
+  .crt {
+    position: fixed; inset: 0; z-index: 1; pointer-events: none;
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        rgba(0,0,0,0) 0px, rgba(0,0,0,0) 1px,
+        rgba(0,0,0,0.35) 2px, rgba(0,0,0,0.35) 3px
+      ),
+      radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,0.55) 130%);
+    mix-blend-mode: multiply;
+    opacity: 0.35;
+  }
+</style>
+</head>
+<body>
+
+<div id="swirl-bg"></div>
+<div class="crt"></div>
+
+<div class="content">
+  <h1>Your actual page content goes here.</h1>
+  <p>The background and scanlines sit behind it automatically.</p>
+</div>
+
+<script src="swirl-background.js"></script>
+<script>
+  // no options needed — this already uses your tuned defaults
+  const bg = new SwirlBackground({ container: '#swirl-bg' });
+
+  // to override anything later, e.g. after your colour tweaks:
+  // const bg = new SwirlBackground({
+  //   container: '#swirl-bg',
+  //   colours: { redMid: '#c23b32', blueMid: '#1a5fae' }
+  // });
+</script>
+
+</body>
+</html>

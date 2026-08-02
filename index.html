@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jack Bartrum — Art Direction / Creative Thinking</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <div class="cursor" aria-hidden="true">
+    <span class="cursor__dot cursor__dot--lead"></span>
+    <span class="cursor__dot"></span>
+    <span class="cursor__dot"></span>
+    <span class="cursor__dot"></span>
+    <span class="cursor__dot"></span>
+    <span class="cursor__dot"></span>
+  </div>
+
+  <header class="site-header">
+    <div class="site-header__inner">
+      <a href="#top" class="logo">Jack Bartrum</a>
+
+      <button class="nav-toggle" aria-label="Toggle menu" aria-expanded="false" aria-controls="primary-nav">
+        <span class="nav-toggle__bar"></span>
+        <span class="nav-toggle__bar"></span>
+        <span class="nav-toggle__bar"></span>
+      </button>
+
+      <nav class="primary-nav" id="primary-nav">
+        <ul>
+          <li><a href="#about">About</a></li>
+          <li><a href="#work">Work</a></li>
+          <li><a href="#personal">Personal</a></li>
+          <li><a href="#cv">CV</a></li>
+          <li><a href="#contact">Contact</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <div class="bottom-glass" aria-hidden="true">
+    <span></span>
+    <span></span>
+    <span></span>
+    <span></span>
+    <span></span>
+  </div>
+
+  <main id="top">
+
+    <!-- HERO -->
+    <section id="hero" class="hero">
+      <div class="hero__pin">
+        <div class="hero__inner">
+          <h1 class="hero__name">Jack Bartrum</h1>
+          <p class="hero__role">MA Advertising Student</p>
+          <p class="hero__tagline">Art direction / Creative thinking</p>
+        </div>
+        <div class="hero__grain" aria-hidden="true"></div>
+      </div>
+    </section>
+
+    <!-- ABOUT -->
+    <section id="about" class="about">
+      <div class="about__pin">
+        <div class="wrapper about__grid">
+          <div class="about__copy">
+            <h2 class="section-heading">About</h2>
+            <p>
+              Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed
+              do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+              Ut enim ad minim veniam, quis nostrud exercitation ullamco
+              laboris nisi ut aliquip ex ea commodo consequat. Duis aute
+              irure dolor in reprehenderit in voluptate velit esse cillum
+              dolore eu fugiat nulla pariatur. Excepteur sint occaecat
+              cupidatat non proident, sunt in culpa qui officia deserunt
+              mollit anim id est laborum. Sed ut perspiciatis unde omnis
+              iste natus error sit voluptatem accusantium doloremque
+              laudantium, totam rem aperiam, eaque ipsa quae ab illo
+              inventore veritatis et
+            </p>
+          </div>
+          <div class="about__portrait">
+            <div class="about__portrait-frame">
+              <span class="placeholder-label">Portrait</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- WORK -->
+    <section id="work" class="work">
+      <div class="work__pin">
+        <div class="wrapper">
+          <h2 class="section-heading">Work</h2>
+        </div>
+
+        <div class="work-carousel" data-work-carousel>
+          <ul class="work-carousel__track">
+            <li class="work-carousel__slide" data-work-slide>
+              <a href="work/kodak.html" class="work-tile work-tile--kodak">
+                <span class="work-tile__visual" aria-hidden="true"></span>
+                <span class="work-tile__logo">Kodak</span>
+                <span class="work-tile__badge">Badge</span>
+                <span class="work-tile__glass" aria-hidden="true"></span>
+              </a>
+            </li>
+
+            <li class="work-carousel__slide" data-work-slide>
+              <a href="work/zermatt.html" class="work-tile work-tile--zermatt">
+                <span class="work-tile__visual" aria-hidden="true"></span>
+                <span class="work-tile__logo"><img src="assets/images/zermatt-logo.png" alt="Zermatt" class="work-tile__logo-img"></span>
+                <span class="work-tile__badge">Badge</span>
+                <span class="work-tile__glass" aria-hidden="true"></span>
+              </a>
+            </li>
+
+            <li class="work-carousel__slide" data-work-slide>
+              <a href="work/twix.html" class="work-tile work-tile--twix">
+                <span class="work-tile__visual" aria-hidden="true"></span>
+                <span class="work-tile__logo">Twix</span>
+                <span class="work-tile__badge">Badge</span>
+                <span class="work-tile__glass" aria-hidden="true"></span>
+              </a>
+            </li>
+
+            <li class="work-carousel__slide" data-work-slide>
+              <a href="work/norwich-theatre-royal.html" class="work-tile work-tile--norwich">
+                <span class="work-tile__visual" aria-hidden="true"></span>
+                <span class="work-tile__logo">Norwich Theatre Royal</span>
+                <span class="work-tile__badge">Badge</span>
+                <span class="work-tile__glass" aria-hidden="true"></span>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <div class="work-carousel__dots" role="tablist" aria-label="Work projects">
+          <button class="work-carousel__dot" type="button" data-work-dot aria-label="Kodak"></button>
+          <button class="work-carousel__dot" type="button" data-work-dot aria-label="Zermatt"></button>
+          <button class="work-carousel__dot" type="button" data-work-dot aria-label="Twix"></button>
+          <button class="work-carousel__dot" type="button" data-work-dot aria-label="Norwich Theatre Royal"></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- PERSONAL PROJECTS -->
+    <section id="personal" class="personal">
+      <div class="wrapper">
+        <h2 class="section-heading">Personal Projects</h2>
+        <div class="personal__grid">
+          <a href="personal/film.html" class="personal__tile">
+            <span>Film</span>
+          </a>
+          <a href="personal/photo.html" class="personal__tile">
+            <span>Photo</span>
+          </a>
+          <a href="personal/3d.html" class="personal__tile">
+            <span>3D</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- CV -->
+    <section id="cv" class="cv">
+      <div class="wrapper cv__grid">
+        <h2 class="section-heading">CV</h2>
+        <div class="cv__content">
+          <div class="cv__document">
+            <p class="cv__doc-name">Jack Bartrum</p>
+            <p class="cv__doc-contact">07903 863183 · jbartrum1001@gmail.com</p>
+
+            <p class="cv__doc-label">Profile</p>
+            <p class="cv__doc-text">
+              Former BA Film graduate and current MA Advertising student.
+              High level technical and creative ability with wide and
+              flexible skillset. Keenness to learn and thrives when
+              working within a collaborative team.
+            </p>
+
+            <p class="cv__doc-label">Education</p>
+            <p class="cv__doc-entry">MA Advertising — Norwich University of the Arts (Sep 2025 – Aug 2026)</p>
+            <p class="cv__doc-text">
+              Develops understanding of advertising context, evolving
+              industry practice and offers opportunity to develop
+              campaigns, pitch in a semi-professional format and engage
+              with agencies and local clients.
+            </p>
+            <p class="cv__doc-entry">BA Film, Television and Digital Production — Bath Spa University (Sep 2021 – Aug 2024)</p>
+            <p class="cv__doc-text">
+              Covers film theory, social and industry context and
+              practical experience creating filmed content across
+              different genres and types.
+            </p>
+            <p class="cv__doc-entry">A Levels — Reepham College (Sep 2019 – Jul 2021)</p>
+            <p class="cv__doc-text">Media – A, History – B, Sociology – C</p>
+
+            <p class="cv__doc-label">Experience</p>
+            <p class="cv__doc-entry">SNS Social Media Agency (Work Experience)</p>
+            <ul class="cv__doc-list">
+              <li>Attended meetings with clients and adjacent agencies</li>
+              <li>Worked with team on shoots and coverage</li>
+              <li>Researched and planned social media content</li>
+              <li>Researched broader industry trends for client presentations</li>
+              <li>Worked within a team system to liaise with clients</li>
+              <li>Worked with analytics and insights</li>
+              <li>Appeared on camera for certain branded content in photo and video shoots</li>
+            </ul>
+
+            <p class="cv__doc-entry">Norwich Theatre &lsquo;Student Saver Scheme&rsquo;</p>
+            <p class="cv__doc-text">
+              Brief: Working with Norwich Theatre on a social media led
+              project to advertise their newly introduced &lsquo;student
+              saver scheme&rsquo; and to reframe how younger audiences
+              view the theatre to increase theatre attendance within
+              that demographic.
+            </p>
+            <ul class="cv__doc-list">
+              <li>Carried out relevant research to gain insight and inform direction</li>
+              <li>Developed a social media led campaign with potential for additional stretch across out of home</li>
+              <li>Designed visual mock-ups and elements for pitch deck</li>
+              <li>Presented to Norwich Theatre advertising team and advised on future direction</li>
+            </ul>
+
+            <p class="cv__doc-entry">Krow Agency &lsquo;Live Brief&rsquo;</p>
+            <p class="cv__doc-text">
+              Brief: Create a multi-layered campaign for an erectile
+              dysfunction spray that &lsquo;takes the pressure off
+              men&rsquo; and present to their team.
+            </p>
+            <ul class="cv__doc-list">
+              <li>Research from a wide array of different sources</li>
+              <li>Come up with a unifying piece of insight and direction</li>
+              <li>Use wide skillset including photography, 3D modelling and design to create high quality and consistent visuals</li>
+              <li>Understand the social media habits of different demographics and create an approach that fits</li>
+              <li>Present pitch deck to Krow&rsquo;s team</li>
+            </ul>
+
+            <p class="cv__doc-label">Relevant Skills</p>
+            <ul class="cv__doc-list">
+              <li>High level technical and design skills with relevant software experience (Photoshop, Premiere Pro, After Effects, InDesign, Blender, Figma)</li>
+              <li>High level research ability particularly in relation to demographics, market research and actioning to create a relevant campaign</li>
+              <li>Comprehensive understanding of AI research and production tools</li>
+              <li>Ability to plan and execute a broad campaign from initial research to final pitch</li>
+              <li>Experience with team-based idea generation and project management</li>
+              <li>High level expertise in videography and photography as well as editing and postproduction</li>
+            </ul>
+
+            <p class="cv__doc-label">Additional Information</p>
+            <ul class="cv__doc-list">
+              <li>Volunteered for Norwich Film Festival through the reviewing and selection process</li>
+              <li>Worked pub front and back of house</li>
+              <li>Filmed musical event for local community</li>
+              <li>Can provide previous creative work examples</li>
+            </ul>
+
+            <button type="button" class="cv__toggle" aria-expanded="false">
+              <span class="cv__toggle-label">Read full CV</span>
+              <span class="cv__toggle-icon" aria-hidden="true"></span>
+            </button>
+          </div>
+          <a href="assets/cv/jack-bartrum-cv.pdf" class="button button--primary cv__download" download>
+            Download CV
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONTACT -->
+    <section id="contact" class="contact">
+      <div class="wrapper">
+        <h2 class="section-heading">Contact</h2>
+        <a class="contact__email" href="mailto:jack@example.com">jack@example.com</a>
+        <ul class="contact__socials">
+          <li><a href="#">Instagram</a></li>
+          <li><a href="#">LinkedIn</a></li>
+          <li><a href="#">Behance</a></li>
+        </ul>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="js/main.js"></script>
+</body>
+</html>

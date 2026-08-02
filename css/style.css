@@ -1,0 +1,934 @@
+/* -----------------------------------------
+   RESET
+----------------------------------------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+main {
+  position: relative;
+}
+
+main > section {
+  scroll-margin-top: var(--nav-height);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+body {
+  min-height: 100vh;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+ul {
+  list-style: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+/* -----------------------------------------
+   VARIABLES (placeholder values — phase 1)
+----------------------------------------- */
+:root {
+  /* type */
+  --font-display: "Playfair Display", Georgia, serif;
+  --font-mono: "JetBrains Mono", "SF Mono", Menlo, monospace;
+  --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  /* placeholder colour palette */
+  --color-bg: #0a0a0a;
+  --color-text: #f4f1ec;
+  --color-muted: #a39c92;
+  --color-border: rgba(255, 255, 255, 0.14);
+  --color-surface: #151515;
+  --color-surface-dark: #1a1a1a;
+
+  /* layout */
+  --nav-height: 64px;
+  --max-width: 1200px;
+  --gutter: 24px;
+
+  /* spacing scale */
+  --space-xs: 8px;
+  --space-sm: 16px;
+  --space-md: 24px;
+  --space-lg: 48px;
+  --space-xl: 96px;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--color-text);
+  background-color: var(--color-bg);
+  line-height: 1.5;
+}
+
+.wrapper {
+  max-width: var(--max-width);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+/* -----------------------------------------
+   CUSTOM CURSOR
+----------------------------------------- */
+/* Only on devices with an actual mouse — touchscreens have no hover/cursor
+   concept, so leave their native behavior alone entirely. */
+@media (pointer: fine) {
+  html {
+    cursor: none;
+  }
+
+  a,
+  button {
+    cursor: none;
+  }
+}
+
+.cursor {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.cursor__dot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--color-text);
+  transform: translate3d(-50%, -50%, 0);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.cursor--on-light .cursor__dot {
+  background-color: #111111;
+}
+
+/* Only the lead dot gets the true per-pixel invert — spreading
+   backdrop-filter across every trailing dot meant overlapping dots each
+   sampled (and re-inverted) whatever dot was already painted behind them,
+   producing "hole" artifacts wherever two inverted dots overlapped. A
+   single non-overlapping-with-itself inverting element sidesteps that
+   entirely; the solid-color trailing dots behind it can overlap freely
+   since flat colors don't compound the way stacked inversions do.
+
+   z-index is also required: in the markup the lead dot is the FIRST
+   .cursor__dot, so without this the plain solid-color trailing dots (which
+   come after it in the DOM) paint on top of it whenever they catch up and
+   overlap it — occluding the middle of the invert circle with an opaque
+   dot, which looks identical to the "hole" artifact above despite being a
+   completely different, purely paint-order cause. */
+.cursor__dot--lead {
+  width: 12px;
+  height: 12px;
+  opacity: 1;
+  z-index: 1;
+  background-color: transparent;
+  backdrop-filter: invert(1);
+  -webkit-backdrop-filter: invert(1);
+}
+
+.cursor__dot:nth-child(2) { width: 11px; height: 11px; }
+.cursor__dot:nth-child(3) { width: 9px; height: 9px; }
+.cursor__dot:nth-child(4) { width: 7px; height: 7px; }
+.cursor__dot:nth-child(5) { width: 6px; height: 6px; }
+.cursor__dot:nth-child(6) { width: 4px; height: 4px; }
+
+/* -----------------------------------------
+   SITE HEADER / NAV
+----------------------------------------- */
+.site-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: var(--nav-height);
+  background:
+    radial-gradient(55% 220% at 18% -80%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 60%),
+    radial-gradient(40% 220% at 82% -100%, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0) 60%),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 60%),
+    rgba(10, 10, 10, 0.45);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 14px 20px -12px rgba(255, 255, 255, 0.25),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.05),
+    0 8px 30px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+}
+
+.site-header__inner {
+  max-width: var(--max-width);
+  height: 100%;
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.logo {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.primary-nav ul {
+  display: flex;
+  gap: var(--space-md);
+}
+
+.primary-nav a {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.nav-toggle {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  width: 32px;
+  height: 32px;
+}
+
+.nav-toggle__bar {
+  display: block;
+  width: 100%;
+  height: 2px;
+  background-color: var(--color-text);
+}
+
+/* Fixed progressive-blur band at the bottom of the viewport — several
+   stacked, softly-masked layers with increasing blur amounts, so the
+   blur ramps up smoothly toward the bottom edge instead of cutting on
+   sharply the way a single backdrop-filter would. Purely decorative
+   (pointer-events: none), sits above section content but below the
+   header/nav. */
+.bottom-glass {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 130px;
+  pointer-events: none;
+  z-index: 90;
+}
+
+.bottom-glass span {
+  position: absolute;
+  inset: 0;
+}
+
+.bottom-glass span:nth-child(1) {
+  backdrop-filter: blur(0.5px);
+  -webkit-backdrop-filter: blur(0.5px);
+  mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 100%);
+}
+
+.bottom-glass span:nth-child(2) {
+  backdrop-filter: blur(1px);
+  -webkit-backdrop-filter: blur(1px);
+  mask-image: linear-gradient(to bottom, transparent 20%, black 40%, black 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 20%, black 40%, black 100%);
+}
+
+.bottom-glass span:nth-child(3) {
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  mask-image: linear-gradient(to bottom, transparent 40%, black 60%, black 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 40%, black 60%, black 100%);
+}
+
+.bottom-glass span:nth-child(4) {
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  mask-image: linear-gradient(to bottom, transparent 60%, black 80%, black 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 60%, black 80%, black 100%);
+}
+
+.bottom-glass span:nth-child(5) {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  background: linear-gradient(to bottom, rgba(10, 10, 10, 0) 0%, rgba(10, 10, 10, 0.35) 100%);
+  mask-image: linear-gradient(to bottom, transparent 80%, black 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 80%, black 100%);
+}
+
+/* -----------------------------------------
+   HERO
+----------------------------------------- */
+.hero {
+  position: relative;
+  overflow: hidden;
+}
+
+.hero__pin {
+  /* No position: sticky/fixed/absolute at all — js/main.js applies a
+     continuous `transform: translateY(scrollY * 0.4)` here, so the
+     hero visual scrolls at 40% of normal speed. .hero's `overflow:
+     hidden` clips it to one viewport height while it lags behind;
+     .about (plain, untouched, normal 1x scroll speed) catches up and
+     rides over it. Matches midu.design's own implementation, which
+     uses this exact technique rather than sticky positioning. */
+  position: relative;
+  overflow: hidden;
+  height: 100vh;
+  padding-top: var(--nav-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #060606;
+  text-align: center;
+  isolation: isolate;
+  will-change: transform;
+}
+
+.hero__pin::before,
+.hero__pin::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -42%;
+  width: 140%;
+  height: 70vh;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at 50% 50%, #fff4e0 0%, #ffcf9c 16%, #ff5a35 38%, #c81f1f 60%, rgba(200, 31, 31, 0) 78%);
+  filter: blur(90px);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.hero__pin::before {
+  animation: heroGlowFlowA 19s ease-in-out infinite;
+}
+
+.hero__pin::after {
+  width: 115%;
+  height: 60vh;
+  opacity: 0.85;
+  animation: heroGlowFlowB 14s ease-in-out infinite;
+}
+
+@keyframes heroGlowFlowA {
+  0% {
+    transform: translateY(var(--blob-shift, 0px)) translate(-50%, 0) scale(1);
+  }
+  20% {
+    transform: translateY(var(--blob-shift, 0px)) translate(-32%, -140px) scale(1.15);
+  }
+  40% {
+    transform: translateY(var(--blob-shift, 0px)) translate(-64%, -220px) scale(0.92);
+  }
+  60% {
+    transform: translateY(var(--blob-shift, 0px)) translate(-40%, -100px) scale(1.1);
+  }
+  80% {
+    transform: translateY(var(--blob-shift, 0px)) translate(-60%, -190px) scale(0.96);
+  }
+  100% {
+    transform: translateY(var(--blob-shift, 0px)) translate(-50%, 0) scale(1);
+  }
+}
+
+@keyframes heroGlowFlowB {
+  0% {
+    transform: translateY(var(--blob-shift, 0px)) translate(-50%, 20px) scale(1);
+  }
+  25% {
+    transform: translateY(var(--blob-shift, 0px)) translate(-68%, -160px) scale(1.12);
+  }
+  50% {
+    transform: translateY(var(--blob-shift, 0px)) translate(-34%, -80px) scale(0.94);
+  }
+  75% {
+    transform: translateY(var(--blob-shift, 0px)) translate(-58%, -200px) scale(1.08);
+  }
+  100% {
+    transform: translateY(var(--blob-shift, 0px)) translate(-50%, 20px) scale(1);
+  }
+}
+
+.hero__inner {
+  padding-inline: var(--gutter);
+}
+
+.hero__name {
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 8vw, 5rem);
+  font-weight: 700;
+  line-height: 1.1;
+  color: #ffffff;
+  mix-blend-mode: difference;
+}
+
+.hero__grain {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0.5;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch' result='noise'/%3E%3CfeColorMatrix in='noise' type='matrix' values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+}
+
+.hero__role {
+  margin-top: var(--space-sm);
+  font-size: clamp(1rem, 2.5vw, 1.25rem);
+  color: #ffffff;
+  mix-blend-mode: difference;
+}
+
+.hero__tagline {
+  font-family: var(--font-mono);
+  margin-top: var(--space-xs);
+  font-size: clamp(0.85rem, 2vw, 1rem);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #ffffff;
+  mix-blend-mode: difference;
+}
+
+/* -----------------------------------------
+   SECTION HEADINGS (shared)
+----------------------------------------- */
+.section-heading {
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 700;
+  margin-bottom: var(--space-lg);
+  animation: headingGlowPulse 6s ease-in-out infinite;
+}
+
+@keyframes headingGlowPulse {
+  0%, 100% {
+    color: #9c0016;
+    text-shadow: 0 0 18px rgba(255, 58, 31, 0.25);
+  }
+  50% {
+    color: #ff3a1f;
+    text-shadow: 0 0 32px rgba(255, 58, 31, 0.55);
+  }
+}
+
+/* -----------------------------------------
+   ABOUT
+----------------------------------------- */
+.about {
+  /* No z-index here on purpose — see js/main.js's setupStackPin. Once
+     .about__pin freezes (translateY holding its top at nav-height),
+     .work needs to paint over it via plain DOM order, which only
+     happens if neither section jumps into its own stacked z-index
+     layer. overflow: hidden + this section's own natural (bounded)
+     height is what makes the frozen .about__pin disappear once .about
+     itself has fully scrolled past — same relationship as .hero /
+     .hero__pin above. */
+  position: relative;
+  overflow: hidden;
+  padding-block: var(--space-xl);
+  background-color: var(--color-bg);
+  box-shadow: 0 -80px 120px -30px rgba(0, 0, 0, 0.7);
+}
+
+.about__pin {
+  position: relative;
+  will-change: transform;
+}
+
+.about__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-lg);
+}
+
+.about__copy p {
+  color: var(--color-muted);
+  max-width: 60ch;
+}
+
+.about__portrait-frame {
+  aspect-ratio: 4 / 5;
+  width: 100%;
+  max-width: 360px;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.placeholder-label {
+  font-family: var(--font-mono);
+  color: var(--color-muted);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* -----------------------------------------
+   WORK
+----------------------------------------- */
+.work {
+  /* See .about's comment — no z-index, so .personal can paint over it
+     the same way .work paints over the frozen .about. overflow: hidden
+     here is what lets .work__pin's freeze self-limit once .work itself
+     has scrolled past, instead of staying glued under the nav forever. */
+  position: relative;
+  overflow: hidden;
+  padding-block: var(--space-xl);
+  background-color: var(--color-bg);
+  box-shadow: 0 -80px 120px -30px rgba(0, 0, 0, 0.7);
+}
+
+.work__pin {
+  position: relative;
+  will-change: transform;
+}
+
+.work .section-heading {
+  margin-bottom: var(--space-lg);
+}
+
+.work-carousel {
+  --slide-w: clamp(320px, 34vw, 560px);
+  --slide-h: clamp(260px, 42vh, 420px);
+  position: relative;
+  width: 100%;
+  height: var(--slide-h);
+  overflow: hidden;
+}
+
+.work-carousel__track {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.work-carousel__slide {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--slide-w);
+  height: var(--slide-h);
+  transition: transform 0.5s ease, opacity 0.5s ease;
+}
+
+.work-carousel__dots {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
+}
+
+.work-carousel__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--color-border);
+  transition: background-color 0.25s ease, transform 0.25s ease;
+}
+
+.work-carousel__dot.is-active {
+  background-color: var(--color-text);
+  transform: scale(1.3);
+}
+
+.work-tile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 20px;
+  background-color: var(--color-surface-dark);
+  color: #ffffff;
+  overflow: hidden;
+}
+
+.work-tile__visual {
+  position: absolute;
+  inset: 0;
+  background-color: var(--color-surface-dark);
+  background-size: cover;
+  background-position: center;
+}
+
+.work-tile--kodak .work-tile__visual { background-color: #4a4a4a; }
+.work-tile--zermatt .work-tile__visual { background-color: #3a3a3a; background-image: url("../assets/images/Zermatt.jpg"); background-position: center top; }
+.work-tile--twix .work-tile__visual { background-color: #55483a; }
+.work-tile--norwich .work-tile__visual { background-color: #402f3a; }
+
+.work-tile__logo {
+  font-family: var(--font-display);
+  position: relative;
+  z-index: 1;
+  font-size: clamp(1.1rem, 2.5vw, 1.75rem);
+  font-weight: 700;
+  text-align: center;
+  padding-inline: var(--space-md);
+}
+
+.work-tile__logo-img {
+  display: inline-block;
+  width: clamp(120px, 40%, 220px);
+  height: auto;
+}
+
+.work-tile__badge {
+  font-family: var(--font-mono);
+  position: absolute;
+  z-index: 1;
+  bottom: var(--space-sm);
+  right: var(--space-sm);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  padding: var(--space-xs) var(--space-sm);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 6px;
+}
+
+/* Same frosted-glass recipe as .site-header (blur + saturate, a soft top
+   highlight, subtle inset glow) — but only reveals on hover of the
+   centered/active tile (aria-current, set by renderWorkCarousel in
+   main.js), not the peeking side tiles either side of it. Sits above the
+   logo/badge (z-index: 4) so it's ready for overview text to be layered
+   on top of it later. */
+.work-tile__glass {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  opacity: 0;
+  background:
+    radial-gradient(55% 220% at 18% -20%, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 60%),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 60%),
+    rgba(10, 10, 10, 0.45);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 14px 20px -12px rgba(255, 255, 255, 0.2);
+  transition: opacity 0.3s ease;
+}
+
+.work-tile[aria-current="true"]:hover .work-tile__glass {
+  opacity: 1;
+}
+
+/* -----------------------------------------
+   PERSONAL PROJECTS
+----------------------------------------- */
+.personal {
+  /* position: relative (no z-index) is load-bearing for the
+     stacking-card paint order against .work__pin — see the comment on
+     .about above. */
+  position: relative;
+  padding-block: var(--space-xl);
+  background-color: var(--color-bg);
+  box-shadow: 0 -80px 120px -30px rgba(0, 0, 0, 0.7);
+}
+
+.personal__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-md);
+}
+
+.personal__tile {
+  font-family: var(--font-display);
+  aspect-ratio: 1 / 1;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* -----------------------------------------
+   CV
+----------------------------------------- */
+.cv {
+  padding-block: var(--space-xl);
+  background-color: var(--color-surface);
+}
+
+.cv__content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-lg);
+}
+
+.cv__document {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  background-color: #f5f1ea;
+  color: #111111;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  padding: var(--space-lg);
+  padding-bottom: calc(var(--space-lg) + 40px);
+  max-height: 460px;
+  overflow: hidden;
+  transition: max-height 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.cv__document::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 120px;
+  background: linear-gradient(to bottom, rgba(245, 241, 234, 0), rgba(245, 241, 234, 1) 70%);
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.4s ease;
+}
+
+.cv__document--expanded {
+  max-height: 4000px;
+}
+
+.cv__document--expanded::before {
+  opacity: 0;
+}
+
+.cv__doc-name {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.cv__doc-contact {
+  font-family: var(--font-mono);
+  color: #6b6b6b;
+  font-size: 0.8rem;
+  margin-top: var(--space-xs);
+}
+
+.cv__doc-label {
+  font-family: var(--font-mono);
+  margin-top: var(--space-md);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b6b6b;
+}
+
+.cv__doc-text {
+  margin-top: var(--space-xs);
+  font-size: 0.9rem;
+}
+
+.cv__doc-entry {
+  font-family: var(--font-mono);
+  margin-top: var(--space-sm);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.cv__doc-list {
+  margin-top: var(--space-xs);
+  padding-left: 1.1em;
+  font-size: 0.9rem;
+  list-style: disc;
+}
+
+.cv__doc-list li {
+  margin-top: 2px;
+}
+
+.cv__toggle {
+  position: absolute;
+  left: 50%;
+  bottom: var(--space-sm);
+  transform: translateX(-50%);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background-color: #f5f1ea;
+  border: 1px solid rgba(17, 17, 17, 0.2);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.cv__toggle-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #111111;
+}
+
+.cv__toggle-icon {
+  width: 8px;
+  height: 8px;
+  border-right: 1.5px solid #111111;
+  border-bottom: 1.5px solid #111111;
+  transform: rotate(45deg);
+  transition: transform 0.3s ease;
+}
+
+.cv__toggle[aria-expanded="true"] .cv__toggle-icon {
+  transform: rotate(-135deg);
+}
+
+.button {
+  font-family: var(--font-mono);
+  display: inline-block;
+  padding: var(--space-sm) var(--space-lg);
+  font-size: 0.85rem;
+  font-weight: 500;
+  border: 1px solid var(--color-text);
+}
+
+.button--primary {
+  background-color: var(--color-text);
+  color: var(--color-bg);
+}
+
+/* -----------------------------------------
+   CONTACT
+----------------------------------------- */
+.contact {
+  padding-block: var(--space-xl);
+  text-align: center;
+}
+
+.contact__email {
+  font-family: var(--font-mono);
+  display: inline-block;
+  font-size: clamp(1.1rem, 3vw, 1.5rem);
+  font-weight: 500;
+  margin-top: var(--space-sm);
+}
+
+.contact__socials {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-md);
+  margin-top: var(--space-lg);
+}
+
+.contact__socials a {
+  font-family: var(--font-mono);
+  color: var(--color-muted);
+  font-size: 0.85rem;
+}
+
+/* -----------------------------------------
+   RESPONSIVE — NAV
+----------------------------------------- */
+@media (min-width: 769px) {
+  .about__grid {
+    grid-template-columns: 1.2fr 1fr;
+    align-items: center;
+  }
+
+  .about__portrait {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .cv__content {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .cv__document {
+    max-width: 720px;
+  }
+}
+
+@media (max-width: 600px) {
+  .personal__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .nav-toggle {
+    display: flex;
+  }
+
+  .primary-nav {
+    position: fixed;
+    top: var(--nav-height);
+    left: 0;
+    width: 100%;
+    height: calc(100vh - var(--nav-height));
+    background-color: var(--color-bg);
+    border-top: 1px solid var(--color-border);
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+  }
+
+  .primary-nav.is-open {
+    transform: translateX(0);
+  }
+
+  .primary-nav ul {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .primary-nav li {
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .primary-nav a {
+    display: block;
+    padding: var(--space-md) var(--gutter);
+    font-size: 1.1rem;
+  }
+}
