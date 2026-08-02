@@ -115,6 +115,33 @@ body {
   filter: brightness(0.5) saturate(1.1);
 }
 
+/* CRT scanlines — from assets/background/example-usage.html's .crt
+   recipe, dialed back (lower line + element opacity, softer vignette)
+   so it reads as a faint texture over the swirl, not an overt effect.
+   Was hero-only; now sitewide alongside .site-swirl for the same
+   reason the swirl itself went sitewide — fixed, same z-index: -1, and
+   placed after .site-swirl in the DOM so it paints on top of it
+   (equal negative z-index siblings stack in tree order). No section
+   needs its own z-index to sit above this — normal-flow content always
+   paints above a negative-z-index layer regardless of DOM order (see
+   gotcha #2 in CLAUDE.md for why nothing in a section should be given
+   one just to "beat" this). */
+.site-scanlines {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.18;
+  mix-blend-mode: multiply;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0) 0px, rgba(0, 0, 0, 0) 1px,
+      rgba(0, 0, 0, 0.35) 2px, rgba(0, 0, 0, 0.35) 3px
+    ),
+    radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.4) 130%);
+}
+
 /* -----------------------------------------
    SITE HEADER / NAV
 ----------------------------------------- */
@@ -356,33 +383,6 @@ body {
   mix-blend-mode: difference;
 }
 
-/* CRT scanlines — from assets/background/example-usage.html's .crt
-   recipe, dialed back (lower line + element opacity, softer vignette)
-   so it reads as a faint texture over the swirl, not an overt effect.
-   z-index: -1, same layer as .hero__swirl and painted after it in the
-   DOM (so it overlays the swirl) — deliberately NOT z-index: 2 sitting
-   above the text. .hero__name/role/tagline have no position/z-index of
-   their own, so as normal-flow content they always paint above any
-   negative-z-index layer regardless of DOM order; giving them (or
-   .hero__inner) their own z-index instead would create a new stacking
-   context and break their mix-blend-mode: difference read against the
-   swirl behind them (see gotcha #2 in CLAUDE.md). */
-.hero__scanlines {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  opacity: 0.18;
-  mix-blend-mode: multiply;
-  background:
-    repeating-linear-gradient(
-      to bottom,
-      rgba(0, 0, 0, 0) 0px, rgba(0, 0, 0, 0) 1px,
-      rgba(0, 0, 0, 0.35) 2px, rgba(0, 0, 0, 0.35) 3px
-    ),
-    radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.4) 130%);
-}
-
 .hero__role {
   margin-top: var(--space-sm);
   font-size: clamp(1rem, 2.5vw, 1.25rem);
@@ -438,11 +438,15 @@ body {
      No background-color here on purpose (was var(--color-bg) before
      the persistent .site-swirl trial) — the section needs to be
      see-through so the shared fixed swirl shows in the gutter around
-     .about__pin's panel, same reasoning as .hero__pin. */
+     .about__pin's panel, same reasoning as .hero__pin.
+
+     No box-shadow either (every other section in the stack still has
+     one — see .work/.personal) — with hero and About now sharing one
+     continuous swirl, the "next card casts a shadow" seam read as a
+     dark band across what should be one uninterrupted background. */
   position: relative;
   overflow: hidden;
   padding-block: var(--space-xl);
-  box-shadow: 0 -80px 120px -30px rgba(0, 0, 0, 0.7);
 }
 
 .about__pin {
