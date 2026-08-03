@@ -21,12 +21,15 @@ no build tooling, no framework, no dependencies beyond Google Fonts.
     "Persistent swirl background" below. `background/example-usage.html` is the
     original usage reference it shipped with, not part of the live site.
   - Real files have started landing in `images/`: `Zermatt.jpg` (work tile photo),
-    `zermatt-logo.png` (wordmark, transparent PNG), and `temp-about-pic.jpg` (About's
+    `zermatt-logo.png` (wordmark, transparent PNG), `temp-about-pic.jpg` (About's
     portrait — a real photo, but explicitly a placeholder/temp one per its filename,
-    not necessarily the final image). Convention: drop new images straight into
-    `assets/images/`, kebab-case filenames, no spaces — exported files often arrive
-    as e.g. `Zermatt logo.png`; rename before wiring in (see gotcha below). Real CV PDF
-    now lives at `assets/cv/jack-bartrum-cv.pdf`, linked from the CV section's download
+    not necessarily the final image), and now `kodak-temp.png`, `twix-temp.png`,
+    `theatre-temp.jpg` (work tile photos for the three previously flat-color
+    placeholder tiles — same "temp" naming caveat as the About portrait applies).
+    Convention: drop new images straight into `assets/images/`, kebab-case filenames,
+    no spaces — exported files often arrive as e.g. `Zermatt logo.png` or
+    `kodak_temp.png`; rename before wiring in (see gotcha below). Real CV PDF now
+    lives at `assets/cv/jack-bartrum-cv.pdf`, linked from the CV section's download
     button.
 - `work/`, `personal/` — not yet created. Individual project detail pages linked from
   the Work and Personal tiles (see Outstanding work below).
@@ -110,48 +113,76 @@ browser is not sufficient evidence that a scroll effect works — it has repeate
 diverged from real Chrome/Safari behavior in this project; treat it as a sanity
 check, not proof.
 
-**Scroll-stacking cards (About → Work → Personal).** Reuses the hero parallax's exact
-freeze technique — no `position: sticky`/`fixed` here either — via a generalized
-`setupStackPin(pinEl)` in `js/main.js`, applied to `.about__pin` and `.work__pin`. Each
-pin scrolls normally until its top edge reaches `--nav-height` from the viewport top;
-past that scrollY, `translateY` grows 1:1 with scroll (no 0.4x drag phase like hero —
-just an instant freeze), holding the pin in place while the next section (plain,
-untouched, normal scroll speed) climbs the document as usual and visually rides over
-it. Personal is the last section in the chain (covers `.work__pin`) but is not itself
-pinned — the freeze/cover chain stops there by explicit design choice, so CV scrolls
-in normally afterward with no special treatment.
+**Hero text fades out partway through About, instead of relying on a cover.** The
+frozen `.hero__pin` used to get visually covered by `.about__pin` once About froze at
+the same screen band too (see "Scroll-stacking cards" below for why that no longer
+happens). Once About stopped freezing, nothing covered the hero text again — it would
+otherwise sit there, visible through the swirl, for the rest of the page, since About
+and Work are both transparent now. Fix, in `js/main.js`: `measureAboutFade` computes
+`aboutFadeScrollY` as the *midpoint* of `.about`'s document-relative scroll range (top
++ half its height, not its bottom edge — see below for why), measured once on load and
+remeasured on `resize`/`load` (images, notably the About portrait, can still shift
+`.about`'s height after the script's first run). `updateHeroParallax` sets
+`heroParallaxEl.style.opacity` to `0` once `scrollY` passes that point, `1` before it;
+`.hero__pin` has `transition: opacity 0.3s ease` so it fades rather than snapping off.
+Fading at About's *bottom* edge (tried first) was too late: the frozen text sits fixed
+very near the top of the viewport (`nav-height + 24px`), but About's own bottom edge
+has to scroll all the way past the top of the viewport before that high-up band is
+genuinely clear of it — well after About has visually stopped covering that band while
+scrolling normally underneath, which let the text peek back out before Work's content
+arrived. Fading at the *midpoint* of About's scroll range instead gives it a
+comfortable margin — gone well before that gap can open up.
 
-**About has since diverged from Work/Personal — read "About panel" below before
-assuming this section still applies uniformly.** Work and Personal still use the
-original design this section describes: a full-bleed, opaque section background that
-covers whatever's frozen beneath it. About no longer does — its section background is
-transparent (so the persistent swirl shows through) and only the narrower, inset
-`.about__pin` "panel" is opaque, so *it* (not the full section) is what does the
-covering now. If the panel treatment is ever extended to Work/Personal/CV, expect to
-revisit the assumptions below for each of them individually.
+**Scroll-stacking cards (Work → Personal).** Reuses the hero parallax's exact freeze
+technique — no `position: sticky`/`fixed` here either — via a generalized
+`setupStackPin(pinEl)` in `js/main.js`, now applied only to `.work__pin` (About used to
+get this too; see below). The pin scrolls normally until its top edge reaches
+`--nav-height` from the viewport top; past that scrollY, `translateY` grows 1:1 with
+scroll (no 0.4x drag phase like hero — just an instant freeze), holding it in place
+while the next section (plain, untouched, normal scroll speed) climbs the document as
+usual and visually rides over it. Personal is the last section in the chain (covers
+`.work__pin`) but is not itself pinned — the freeze/cover chain stops there by explicit
+design choice, so CV scrolls in normally afterward with no special treatment.
 
-Two things have to stay true for this to keep working, both easy to break by accident:
+**About dropped out of this chain — it now scrolls continuously, uninterrupted, like
+Personal/CV/Contact.** `setupStackPin(document.querySelector('.about__pin'))` was
+removed from `js/main.js`, and `.about` lost its `overflow: hidden` (nothing left to
+clip — see gotcha #8's general rule, which `.about` no longer needs an exception to).
+This was a direct fix for a "cut off by an invisible border" complaint: once `.work`'s
+own background went transparent (see "About panel"/Work carousel below), there was
+nothing opaque left to cover the frozen About panel once it hit `.about`'s own
+`overflow: hidden` boundary — instead of a smooth cover, the panel just vanished at a
+hard rectangular clip line mid-scroll. Letting About scroll normally instead means
+there's no freeze to clip away in the first place. `.work__pin` still freezes so
+Personal can cover it, untouched by this change — only About was affected.
 
-- The transform must go on the **inner** `.about__pin` / `.work__pin`, never on the
-  outer `.about` / `.work` section. The outer section stays untransformed, at its own
-  natural bounded height, with `overflow: hidden` — that's what makes the freeze
-  self-limiting (the frozen pin gets clipped away once the outer section's own box has
-  scrolled fully past). Transforming the section itself instead (tried first) freezes
-  forever with nothing to clip it, so it stays glued under the nav bar permanently and
-  shows back through once the covering section's box has scrolled on past that same
-  band. See gotcha #8 below.
+Two things have to stay true for the remaining `.work__pin` → `.personal` link (and for
+`.about__pin` painting over the frozen hero text, even though About no longer freezes
+itself) to keep working, both easy to break by accident:
+
+- The transform must go on the **inner** `.work__pin`, never on the outer `.work`
+  section. The outer section stays untransformed, at its own natural bounded height,
+  with `overflow: hidden` — that's what makes the freeze self-limiting (the frozen pin
+  gets clipped away once the outer section's own box has scrolled fully past).
+  Transforming the section itself instead (tried first, back when About also worked
+  this way) freezes forever with nothing to clip it, so it stays glued under the nav
+  bar permanently and shows back through once the covering section's box has scrolled
+  on past that same band. See gotcha #8 below.
 - None of `.about`, `.work`, `.personal` may carry a `z-index` — only `position:
-  relative`. The "next section covers the frozen one" effect relies entirely on plain
-  DOM paint order; a positioned element with an explicit `z-index` jumps stacking
-  layers and paints above/below regardless of DOM order, breaking the illusion. This is
-  why `.personal` has `position: relative` (load-bearing — needed so it stacks
-  correctly against `.work__pin`) while `.cv` deliberately does not (it was never part
-  of the cover chain, so it never needed it). If the chain is ever extended to CV,
-  `.cv` will need `position: relative` added the same way.
+  relative`. The "next thing covers the frozen/earlier one" effect (both About-over-
+  hero-text and Work-over-Personal) relies entirely on plain DOM paint order; a
+  positioned element with an explicit `z-index` jumps stacking layers and paints
+  above/below regardless of DOM order, breaking the illusion. This is why `.personal`
+  has `position: relative` (load-bearing — needed so it stacks correctly against
+  `.work__pin`) while `.cv` deliberately does not (it was never part of the cover
+  chain, so it never needed it). If the chain is ever extended to CV, `.cv` will need
+  `position: relative` added the same way.
 
-`.work` and `.personal` both carry the same upward-cast `box-shadow:
-0 -80px 120px -30px rgba(0,0,0,0.7)` as `.about` originally had, for a consistent
-"next card casts a shadow on the one it's covering" depth cue.
+`.personal` still carries the upward-cast `box-shadow: 0 -80px 120px -30px
+rgba(0,0,0,0.7)` `.about`/`.work` originally had, for a "next card casts a shadow on
+the one it's covering" depth cue — `.work` itself dropped this (see Work carousel
+below) once its own background went transparent, for the same seam reason `.about`
+dropped it first.
 
 **Tried, reverted, then successfully rebuilt: animated section backgrounds.** An early
 attempt at a decorative moving background behind About/Work/Personal/CV content — a
@@ -181,10 +212,11 @@ one continuous background that sections scroll/pin *over*, not multiple independ
 ones that happen to look similar.
 
 Sections that want the swirl visible just need a transparent background of their own
-(`.hero__pin`, `.about` both have none) — anything else painted in a normal
-(non-negative) `z-index`, which is every section by default, naturally paints over the
-fixed layer with zero extra effort. Work/Personal/CV/Contact still have their original
-opaque backgrounds, so the swirl doesn't show through them (yet — see Outstanding).
+(`.hero__pin`, `.about`, and now `.work` all have none) — anything else painted in a
+normal (non-negative) `z-index`, which is every section by default, naturally paints
+over the fixed layer with zero extra effort. Personal/CV/Contact still have their
+original opaque backgrounds, so the swirl doesn't show through them (yet — see
+Outstanding).
 
 The shader's default red/blue "marble" palette was first retuned in the `swirlOptions`
 passed into the `SwirlBackground` constructor to a warm red/black ramp matching the
@@ -196,8 +228,16 @@ time. Both of the shader's colour "families" (`redDark`/`redMid`/`redLight` and
 two blend ramps, not a literal red-vs-blue split) are blue tones now, so the marble
 blend reads as one cohesive blue rather than two competing hues; `balance`/`settle`/
 `resolutionScale` were left untouched both times — only the palette changed, not the
-shape or motion of the swirl. `resolutionScale` (currently `0.4`) renders the canvas at
-a fraction of its
+shape or motion of the swirl.
+
+`redLight` was retuned a third time, from `#3f7fad` to `#60a3d8`, on feedback that the
+swirl had plenty of dark/navy and plenty of mid-blue but not much distinctly *lighter*
+blue. The old value sat almost exactly at the same luminance as `blueMid` (`#2f7fc4`),
+so there was a big gap between the mid-tones and `blueLight`'s icy pale highlight with
+nothing in between; `#60a3d8` fills that gap (its own ramp runs near-black → dark navy
+→ this light blue) without touching the darks or the icy highlight either side of it.
+
+`resolutionScale` (currently `0.4`) renders the canvas at a fraction of its
 actual displayed size — the shader is fragment-heavy, so this is a real, significant
 GPU-cost win (a straight `scale²` reduction in pixels computed per frame), and because
 the shader samples with `gl.LINEAR` filtering, the upscale reads as a deliberately
@@ -230,9 +270,11 @@ the painted text is actually affected — visually equivalent to blending the te
 alone. See gotcha #10 before "fixing" this back the other way; it was tested
 extensively and the isolation-based theory was wrong.
 
-**About panel.** `.about__pin` is a scroll-freeze wrapper only — `position`/`transform`/
-`min-height`, no background or `clip-path` of its own (see the shadow paragraph below
-for why). The panel's actual visible surface is `.about__grid`: it carries the solid
+**About panel.** `.about__pin` used to be a scroll-freeze wrapper (see "Scroll-stacking
+cards" above for why that was dropped) and still carries no background or `clip-path`
+of its own — just `position: relative`/`min-height` now (see the shadow paragraph below
+for why the background stays off it regardless). The panel's actual visible surface is
+`.about__grid`: it carries the solid
 `background-color`, the pixel-corner `clip-path`, and the padding that briefly lived on
 `.about__pin` instead. `.about__pin` is `display: flex` with `align-items` left at its
 default (`stretch`), so `.about__grid` stretches to fill `.about__pin`'s full height
@@ -341,13 +383,47 @@ supposed to show. `.about__portrait` (the plain wrapper, no `clip-path` of its o
 carries the shadow instead, sized with the same `width: 100%; max-width: 460px` as the
 frame so the two boxes always coincide exactly at any viewport width.
 
-**Work carousel.** `#work` no longer uses a 2x2 grid — `.work-carousel` is a
-center-focused slider (Kodak / Zermatt / Twix / Norwich Theatre Royal) that spans the
-full page width (deliberately placed *outside* `.wrapper` in `index.html` so it isn't
-constrained by `--max-width`/padding). Click a peeking side tile to slide it to
-center (loops infinitely both directions); click the centered tile to follow its link.
-`js/main.js`'s `wrappedDelta()` computes each slide's shortest-path offset from the
-active index. Three more behaviors layered on top:
+**`.work` section — transparent, matching About's swirl-through treatment.** `.work`
+used to have an opaque `background-color: var(--color-bg)` plus the same upward-cast
+`box-shadow` as `.personal`; both were dropped so the persistent swirl shows through
+around and behind the carousel, the same reasoning `.about` already went through (see
+"Scroll-stacking cards" above — removing `.work`'s own opaque background is exactly
+what broke About's old freeze-and-cover trick, since there was no longer anything
+opaque to cover About with). `.work` keeps its `overflow: hidden` — that's still load-
+bearing for `.work__pin`'s own freeze (see above), unrelated to why `.about` lost its
+copy of the same property.
+
+**Work heading replaced with a centered label, matching About's.** `<h2
+class="section-heading">Work</h2>` (the shared red pulsing heading every other section
+still uses) was replaced with `<p class="work__label">- work -</p>`, styled identically
+to `.about__label` (small `--font-mono`, muted/translucent white, uppercase) but with
+`text-align: center` added, since Work's label sits alone above a full-width carousel
+rather than paired with a two-column layout like About's copy block.
+
+**Work tiles restyled to match the About panel — blue pixel-corner "pane" instead of a
+dark rounded rectangle.** `.work-tile` used to be `border-radius: 20px` on
+`var(--color-surface-dark)` (a near-black rounded box); it now carries the exact same
+pixel-staircase `clip-path` recipe as `.about__pin` (own `--pixel-corner-step: 6px`,
+same 9-cell polygon) and the same `#3d6989` panel blue as its `background-color`, with
+every tile's `.work-tile__visual` background-color also switched to `#3d6989` so the
+color shows correctly under/around each tile's photo. This makes each tile read as its
+own small instance of the About panel's "pane" look rather than a plain photo card.
+Carousel layout, sizing, and behavior (drag-to-center, hover glass, logo z-index) were
+untouched by this — only the tile's own shape/color changed.
+
+**`#work` no longer uses a 2x2 grid** — `.work-carousel` is a center-focused slider
+(currently ordered Zermatt / Kodak / Twix / Norwich Theatre Royal — Zermatt leads
+deliberately, reordered from an original Kodak-first order) that spans the full page
+width (deliberately placed *outside* `.wrapper` in `index.html` so it isn't constrained
+by `--max-width`/padding). Click a peeking side tile to slide it to center (loops
+infinitely both directions); click the centered tile to follow its link. `js/main.js`'s
+`wrappedDelta()` computes each slide's shortest-path offset from the active index.
+Kodak, Twix, and Norwich Theatre Royal now have real (if explicitly "-temp"-named)
+photos wired into `.work-tile__visual` (`kodak-temp.png`, `twix-temp.png`,
+`theatre-temp.jpg`) instead of flat placeholder colors — all use plain `background-
+position: center` (no special cropping needed like Zermatt's `center top`; see gotcha
+#6 on why that choice is viewport-shape-dependent and needs re-checking if it ever
+looks wrong). Several more behaviors layered on top:
 - **Spacing** (`renderWorkCarousel`): must be measured via `offsetWidth` (the layout
   box), not `getBoundingClientRect()` — the latter reads the *already-transformed*
   size, and right after a click the newly-active slide still carries its old,
@@ -372,6 +448,19 @@ active index. Three more behaviors layered on top:
   stays crisp. `.work-tile__badge` is still at `z-index: 1`, under the glass, on
   purpose — only the logo was asked to stay sharp. Ready for overview copy to be
   layered on top of the glass later (not built yet).
+- **Touch swipe** (mobile): on touch devices the only way to change slides used to be
+  tapping the small dots — there's no hover/click affordance for the peeking side tiles
+  the way desktop has. `touchstart`/`touchmove`/`touchend` listeners on
+  `[data-work-carousel]` track horizontal distance and call the same `goToWorkSlide()`
+  the dots/tile-clicks already use (same 0.5s eased transition) once a swipe clears a
+  40px threshold — a discrete "jump to next/prev slide," not the tiles dragging 1:1
+  with the finger, since that would need real rubber-banding/velocity tuning to avoid
+  feeling janky. Direction is decided once movement clears a 10px deadzone: only past
+  that point does it check whether horizontal movement leads vertical, and only then
+  does it `preventDefault()` (in a non-passive `touchmove` listener) — a mostly-vertical
+  touch is left alone so it scrolls the page normally instead of getting eaten by the
+  carousel. `.work-carousel` also has `touch-action: pan-y` so vertical scrolling starts
+  immediately with no native-gesture hesitation, independent of the JS logic above.
 
 Each tile layers three pieces inside the `<a class="work-tile">`: `.work-tile__visual`
 (the photo — `position: absolute; inset: 0`, `background-image` + `background-size:
@@ -385,6 +474,9 @@ regardless of the photo).
 saturate(180%)`) uses two off-center `radial-gradient`s (not a single flat linear fade)
 plus a bright `inset` top rim and a softer blurred `inset` glow beneath it, so the
 highlight reads as directional light catching curved glass rather than a uniform wash.
+The base fill under those gradients is `rgba(10, 10, 10, ...)` — retuned from `0.45`
+opacity down to `0.22` on feedback that the bar felt too dark; letting more of the
+blurred swirl color show through instead of a near-black glass tint.
 
 **Bottom progressive-blur band.** `.bottom-glass` (fixed to the viewport bottom, ~130px
 tall, present sitewide, `pointer-events: none`) fakes a smoothly graduated blur — which a
@@ -665,7 +757,15 @@ blend-mode elements, even though the cursor itself is gone.
   shadow removed) → About portrait moved to the left column and made circular, then
   pixel-art-circular (real photo wired in, retuned from chunkier to finer pixels) →
   About-panel hard shadow attempted twice (drop-shadow, then a working but
-  user-reverted `::before` version) → About-portrait hard shadow added successfully).
+  user-reverted `::before` version) → About-portrait hard shadow added successfully →
+  Work tiles restyled to the About panel's blue pixel-corner look → `.work` section
+  made transparent to match About's swirl-through treatment → About's scroll-freeze
+  dropped (continuous scroll, fixing an invisible-border cutoff) → hero text given a
+  scroll-based fade-out (About's midpoint) so it no longer lingers past About → Work
+  heading replaced with a centered `- work -` label matching About's → Kodak/Twix/
+  Norwich Theatre Royal given real (temp) photos → carousel reordered Zermatt-first →
+  site header lightened → swirl given a third palette retune (`#60a3d8` light blue) →
+  Work carousel given touch swipe support).
 - Reference designs are for *flow/behavior* inspiration only, not literal visual copying
   (e.g. midu.design was referenced for the scroll-parallax feel, not its actual layout;
   viclopez.art was referenced for the scroll-stacking cards' "next section covers the
@@ -693,18 +793,31 @@ blend-mode elements, even though the cursor itself is gone.
 - About's quote copy ("Insightful quote that will make people hire me") and its `-
   about -` label are both placeholder text, not final copy.
 - Real contact/social links (currently `mailto:jack@example.com` and `href="#"` placeholders).
-- Work tile imagery — Zermatt now has a real photo (`assets/images/Zermatt.jpg`) and logo
-  (`assets/images/zermatt-logo.png`); Kodak, Twix, and Norwich Theatre Royal are still
-  flat color placeholders with plain-text logos.
+- Work tile imagery — Zermatt has a real photo (`assets/images/Zermatt.jpg`) and logo
+  (`assets/images/zermatt-logo.png`); Kodak, Twix, and Norwich Theatre Royal now have
+  real photos too (`kodak-temp.png`, `twix-temp.png`, `theatre-temp.jpg`), but all three
+  still use plain-text logos (no wordmark image yet, unlike Zermatt's), and the "-temp"
+  filenames mean these should be confirmed as final (or replaced) before treating them
+  as done, same caveat as the About portrait.
 - Work tile overview text — the `.work-tile__glass` hover reveal (frosted glass over the
   centered tile on hover) is built and working; the actual copy meant to sit on top of it
   hasn't been added yet.
-- The persistent-swirl + inset-panel treatment (see "Persistent swirl background" and
-  "About panel" above) is currently About-only, by explicit design — it was built as an
-  isolated trial. Work, Personal, CV, and Contact still use the original full-bleed
-  opaque section design (their own `background-color`, plus Work/Personal's upward-cast
-  `box-shadow` cover cue that About's no longer has). If this gets extended sitewide,
-  each section will need its own version of the transparent-background + inset-panel +
-  pixel-corner treatment (or a shared component extracted from `.about__pin`'s CSS), and
-  Work/Personal's `box-shadow` will likely need the same removal treatment About's got,
-  for the same "seam across what should be unbroken" reason.
+- The persistent-swirl treatment (see "Persistent swirl background" above) now covers
+  Hero, About, and Work — About via its inset `.about__pin` panel, Work via per-tile
+  blue pixel-corner panes on `.work-tile` rather than one single inset panel (the
+  carousel itself stays full-bleed/edge-to-edge on purpose). Personal, CV, and Contact
+  still use the original full-bleed opaque section design (their own `background-color`,
+  plus Personal's upward-cast `box-shadow` cover cue). If this gets extended further,
+  each section will need its own version of the transparent-background treatment (or a
+  shared component extracted from the existing CSS), and Personal's `box-shadow` will
+  likely need the same removal treatment `.about`/`.work` already got, for the same
+  "seam across what should be unbroken" reason.
+- Hero text's fade-out point (`aboutFadeScrollY` in `js/main.js`) is tuned to the
+  *midpoint* of `.about`'s scroll range, chosen for a comfortable margin rather than
+  pixel-perfect alignment with when About's panel actually stops covering the frozen
+  text. Works well in testing; if About's content height changes a lot (longer copy, a
+  taller portrait), it's worth re-checking that the fade still lands before the panel
+  visually clears that band, not after.
+- Work carousel touch swipe (see "Work carousel" above) was verified with synthetic
+  touch events and a mobile-sized viewport in this tool, not yet confirmed on an actual
+  phone — the user should give it a real test when convenient.

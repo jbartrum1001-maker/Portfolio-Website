@@ -31,6 +31,15 @@ primaryNav.querySelectorAll('a').forEach((link) => {
 // one cohesive blue instead of red-vs-blue. balance/settle/
 // resolutionScale are untouched on purpose — only the palette
 // changed, not the shape or motion of the swirl.
+//
+// redLight retuned a third time, from #3f7fad to #60a3d8: that old
+// value sat almost exactly at the same luminance as blueMid (#2f7fc4),
+// so the swirl had plenty of dark/navy and plenty of mid-blue but
+// nothing distinctly lighter until blueLight's icy pale tone — a big
+// gap with no proper "light blue" in between. #60a3d8 fills that gap
+// (its own ramp: near-black -> dark navy -> this light blue), giving
+// the lighter end of the palette real presence without touching the
+// dark contrast or the icy blueLight highlight either side of it.
 const siteSwirlEl = document.querySelector('.site-swirl');
 if (siteSwirlEl && typeof SwirlBackground !== 'undefined') {
   new SwirlBackground({
@@ -39,7 +48,7 @@ if (siteSwirlEl && typeof SwirlBackground !== 'undefined') {
     settle: 0.3,
     resolutionScale: 0.4,
     colours: {
-      redDark: '#040c14', redMid: '#123a5c', redLight: '#3f7fad',
+      redDark: '#040c14', redMid: '#123a5c', redLight: '#60a3d8',
       blueDark: '#0a1f30', blueMid: '#2f7fc4', blueLight: '#a8def5',
       highlight: '#eaf6ff'
     }
@@ -66,6 +75,7 @@ const navHeight = parseFloat(getComputedStyle(document.documentElement).getPrope
 
 const heroParallaxEl = document.querySelector('.hero__pin');
 const heroTextEl = document.querySelector('.hero__inner');
+const aboutEl = document.querySelector('.about');
 
 if (heroParallaxEl && heroTextEl) {
   const heroParallaxFactor = 0.4;
@@ -82,6 +92,35 @@ if (heroParallaxEl && heroTextEl) {
   // reading as a subtle layer of depth behind the text.
   const heroBlobLagFactor = 0.15;
 
+  // The frozen hero text used to get covered up by .about's own frozen
+  // panel scrolling over it. Now that About scrolls past normally (see
+  // the "Work stacking card" comment below) instead of freezing, nothing
+  // ever covers the hero text again — it would otherwise sit there,
+  // visible through the swirl, for the rest of the page.
+  //
+  // Fading it out at About's own bottom edge (tried first) was too late:
+  // the frozen text sits fixed near the very top of the viewport
+  // (nav-height + 24px), but About's panel doesn't fully vacate that
+  // same screen band until its bottom edge scrolls all the way past the
+  // top of the viewport — well after the panel has stopped covering
+  // that high-up band, since the panel is scrolling normally underneath
+  // it. That gap let the hero text peek back out before Work's own
+  // content arrived. Fading it out at the midpoint of About's own
+  // scroll range instead gives it a comfortable margin — gone well
+  // before About's bottom gets anywhere near that band. Measured
+  // similarly to setupStackPin's naturalTop — .about doesn't transform,
+  // so its position is stable document-wise, but it's remeasured on
+  // load/resize since images (the About portrait) can still shift it
+  // after this script's first run.
+  let aboutFadeScrollY = Infinity;
+
+  function measureAboutFade() {
+    if (!aboutEl) return;
+    const rect = aboutEl.getBoundingClientRect();
+    const aboutTop = rect.top + window.scrollY;
+    aboutFadeScrollY = aboutTop + rect.height * 0.5;
+  }
+
   function updateHeroParallax() {
     const scrollY = window.scrollY;
     const translateY = scrollY <= heroFreezeScrollY
@@ -89,32 +128,51 @@ if (heroParallaxEl && heroTextEl) {
       : scrollY - heroFreezeScrollY * (1 - heroParallaxFactor);
     heroParallaxEl.style.transform = `translateY(${translateY}px)`;
     heroParallaxEl.style.setProperty('--blob-shift', `${-translateY * heroBlobLagFactor}px`);
+    heroParallaxEl.style.opacity = scrollY >= aboutFadeScrollY ? '0' : '1';
   }
 
+  measureAboutFade();
   updateHeroParallax();
   window.addEventListener('scroll', () => requestAnimationFrame(updateHeroParallax), { passive: true });
+  window.addEventListener('resize', () => {
+    measureAboutFade();
+    updateHeroParallax();
+  });
+  window.addEventListener('load', () => {
+    measureAboutFade();
+    updateHeroParallax();
+  });
 }
 
 // -----------------------------------------
-// About / Work stacking cards — same no-sticky, no-fixed technique as
-// the hero freeze above, just reused per section instead of once at the
-// top of the page. Each pin element scrolls normally right up until its
-// top edge reaches nav-height; from that scrollY on, a translateY that
-// grows 1:1 with scroll exactly cancels further motion, holding it
-// there. The next section (plain, untouched, normal 1x scroll speed)
-// keeps climbing the document as usual and visually rides over the
-// frozen one — no z-index/sticky trickery needed for the "cover" part,
-// it falls out of plain DOM paint order (see the CSS comments on
-// .about/.work for the one thing that has to stay true for that: neither
-// section can carry its own z-index).
+// Work stacking card — same no-sticky, no-fixed technique as the hero
+// freeze above, reused for .work__pin so Personal can visually ride
+// over it. The pin scrolls normally right up until its top edge reaches
+// nav-height; from that scrollY on, a translateY that grows 1:1 with
+// scroll exactly cancels further motion, holding it there. The next
+// section (plain, untouched, normal 1x scroll speed) keeps climbing the
+// document as usual and visually rides over the frozen one — no
+// z-index/sticky trickery needed for the "cover" part, it falls out of
+// plain DOM paint order (see the CSS comments on .work for the one
+// thing that has to stay true for that: the section can't carry its
+// own z-index).
 //
-// The transform goes on the INNER .about__pin / .work__pin, never on the
-// section itself — the outer section stays untransformed, at its own
-// natural bounded height, with overflow: hidden. That's what makes the
-// freeze self-limiting: once the outer section's own box has scrolled
-// fully past the viewport, its overflow: hidden clips the (still
-// "frozen") pin away with it, same as .hero / .hero__pin above. Applying
-// the transform to the section itself instead — tried first — freezes
+// About used to get this same treatment (.about__pin), but it was
+// dropped: once .work's own section background went transparent (so
+// the persistent swirl shows through — see .work's CSS comment), there
+// was nothing opaque left to cover the frozen About panel once it hit
+// .about's own overflow: hidden boundary. Instead of a smooth cover, it
+// just vanished at a hard rectangular clip line — a visible "invisible
+// border" cutoff mid-scroll. About now scrolls normally, uninterrupted,
+// like Personal/CV/Contact already do.
+//
+// The transform goes on the INNER .work__pin, never on .work itself —
+// the outer section stays untransformed, at its own natural bounded
+// height, with overflow: hidden. That's what makes the freeze
+// self-limiting: once the outer section's own box has scrolled fully
+// past the viewport, its overflow: hidden clips the (still "frozen")
+// pin away with it, same as .hero / .hero__pin above. Applying the
+// transform to the section itself instead — tried first — freezes
 // forever with nothing to clip it, so it stays glued under the nav bar
 // permanently and shows back through once the covering section's own
 // box has scrolled on past that same band.
@@ -147,7 +205,6 @@ function setupStackPin(pinEl) {
   });
 }
 
-setupStackPin(document.querySelector('.about__pin'));
 setupStackPin(document.querySelector('.work__pin'));
 
 // -----------------------------------------
@@ -269,6 +326,55 @@ if (workCarousel) {
 
   workDots.forEach((dot, index) => {
     dot.addEventListener('click', () => goToWorkSlide(index));
+  });
+
+  // Touch swipe — on mobile, the only way to change slides was tapping
+  // the small dots, since there's no hover/click affordance for the
+  // peeking side tiles the way desktop has. Swipe left/right jumps to
+  // the next/prev slide via the same goToWorkSlide() the dots and tile
+  // clicks already use (same 0.5s eased transition), rather than
+  // dragging the tiles 1:1 with the finger — far less code, and
+  // nothing to rubber-band or tune if a drag doesn't complete.
+  //
+  // Direction is decided once movement clears a small deadzone: only
+  // preventDefault (and treat it as a swipe) once horizontal movement
+  // clearly leads vertical, so a mostly-vertical touch still scrolls
+  // the page normally instead of getting eaten by the carousel.
+  let workTouchStartX = 0;
+  let workTouchStartY = 0;
+  let workTouchIsHorizontal = null;
+
+  workCarousel.addEventListener('touchstart', (event) => {
+    const touch = event.touches[0];
+    workTouchStartX = touch.clientX;
+    workTouchStartY = touch.clientY;
+    workTouchIsHorizontal = null;
+  }, { passive: true });
+
+  workCarousel.addEventListener('touchmove', (event) => {
+    const touch = event.touches[0];
+    const deltaX = touch.clientX - workTouchStartX;
+    const deltaY = touch.clientY - workTouchStartY;
+
+    if (workTouchIsHorizontal === null && (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10)) {
+      workTouchIsHorizontal = Math.abs(deltaX) > Math.abs(deltaY);
+    }
+
+    if (workTouchIsHorizontal) {
+      event.preventDefault();
+    }
+  }, { passive: false });
+
+  workCarousel.addEventListener('touchend', (event) => {
+    if (!workTouchIsHorizontal) return;
+    const touch = event.changedTouches[0];
+    const deltaX = touch.clientX - workTouchStartX;
+    const swipeThreshold = 40;
+    if (deltaX <= -swipeThreshold) {
+      goToWorkSlide(workActive + 1);
+    } else if (deltaX >= swipeThreshold) {
+      goToWorkSlide(workActive - 1);
+    }
   });
 
   window.addEventListener('scroll', () => requestAnimationFrame(updateWorkReveal), { passive: true });

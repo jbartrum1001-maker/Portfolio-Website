@@ -155,7 +155,7 @@ body {
     radial-gradient(55% 220% at 18% -80%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 60%),
     radial-gradient(40% 220% at 82% -100%, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0) 60%),
     linear-gradient(to bottom, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 60%),
-    rgba(10, 10, 10, 0.45);
+    rgba(10, 10, 10, 0.22);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border-bottom: 1px solid rgba(255, 255, 255, 0.14);
@@ -328,7 +328,12 @@ body {
      painted text pixels are actually affected — visually equivalent to
      blending the text alone. */
   mix-blend-mode: difference;
-  will-change: transform;
+  will-change: transform, opacity;
+  /* Fades out once .about has fully scrolled past (see js/main.js) so
+     the frozen text doesn't linger, visible through the swirl, into
+     Work/Personal/etc. — it used to get covered by About's own frozen
+     panel, back when About froze too. */
+  transition: opacity 0.3s ease;
 }
 
 /* Original hero blob glow — kept for reference/revert (see git history
@@ -454,14 +459,18 @@ body {
    ABOUT
 ----------------------------------------- */
 .about {
-  /* No z-index here on purpose — see js/main.js's setupStackPin. Once
-     .about__pin freezes (translateY holding its top at nav-height),
-     .work needs to paint over it via plain DOM order, which only
-     happens if neither section jumps into its own stacked z-index
-     layer. overflow: hidden + this section's own natural (bounded)
-     height is what makes the frozen .about__pin disappear once .about
-     itself has fully scrolled past — same relationship as .hero /
-     .hero__pin above.
+  /* No z-index here on purpose — .about__pin needs to paint over the
+     frozen .hero__pin via plain DOM order, which only happens if
+     neither section jumps into its own stacked z-index layer.
+
+     About used to freeze in place too (setupStackPin, same as
+     .work__pin), so it could be visually covered by .work scrolling up
+     over it. Dropped once .work's own background went transparent —
+     with nothing opaque left to cover the frozen panel, it just clipped
+     off hard at .about's overflow: hidden boundary instead, a jarring
+     "invisible border" cutoff. About now scrolls normally/continuously
+     like Personal/CV/Contact, so no overflow: hidden is needed here
+     either — there's no frozen pin left to clip away.
 
      No background-color here on purpose (was var(--color-bg) before
      the persistent .site-swirl trial) — the section needs to be
@@ -473,7 +482,6 @@ body {
      continuous swirl, the "next card casts a shadow" seam read as a
      dark band across what should be one uninterrupted background. */
   position: relative;
-  overflow: hidden;
   padding-block: var(--space-md);
 }
 
@@ -509,7 +517,6 @@ body {
      cells × step = total corner cut). */
   --pixel-corner-step: 6px;
   position: relative;
-  will-change: transform;
   min-height: calc(100vh - var(--nav-height) - var(--space-lg));
   display: flex;
   align-items: center;
@@ -1145,12 +1152,16 @@ body {
   /* See .about's comment — no z-index, so .personal can paint over it
      the same way .work paints over the frozen .about. overflow: hidden
      here is what lets .work__pin's freeze self-limit once .work itself
-     has scrolled past, instead of staying glued under the nav forever. */
+     has scrolled past, instead of staying glued under the nav forever.
+
+     No background-color or box-shadow here on purpose, matching .about
+     — the section needs to be see-through so the shared fixed swirl
+     shows behind the carousel and around its edges, and a shadow cast
+     onto the now-transparent .about would read as a seam across what
+     should be one continuous swirl. */
   position: relative;
   overflow: hidden;
   padding-block: var(--space-xl);
-  background-color: var(--color-bg);
-  box-shadow: 0 -80px 120px -30px rgba(0, 0, 0, 0.7);
 }
 
 .work__pin {
@@ -1158,7 +1169,16 @@ body {
   will-change: transform;
 }
 
-.work .section-heading {
+.work__label {
+  /* Same styling as .about__label, centered — replaces the old red
+     pulsing "Work" .section-heading so the carousel gets a quiet
+     label instead of a competing glow. */
+  font-family: var(--font-mono);
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-align: center;
   margin-bottom: var(--space-lg);
 }
 
@@ -1169,6 +1189,11 @@ body {
   width: 100%;
   height: var(--slide-h);
   overflow: hidden;
+  /* Tells the browser this element's own touch gesture is vertical
+     panning, so a vertical touch scrolls the page immediately with no
+     hesitation — js/main.js's touchmove handler still fires regardless
+     and preventDefault()s only once it detects a horizontal swipe. */
+  touch-action: pan-y;
 }
 
 .work-carousel__track {
@@ -1207,30 +1232,81 @@ body {
 }
 
 .work-tile {
+  /* Same pixel-staircase corner recipe as .about__pin (see its comment
+     for the step-pattern reasoning) instead of a plain border-radius —
+     replaces the old flat "black window" look with the About panel's
+     blue pixel-corner pane. clip-path shapes the whole tile (photo,
+     logo, badge, glass included), same as it does for .about__pin. */
+  --pixel-corner-step: 6px;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
   height: 100%;
-  border-radius: 20px;
-  background-color: var(--color-surface-dark);
+  background-color: #3d6989;
   color: #ffffff;
   overflow: hidden;
+  clip-path: polygon(
+    0 calc(var(--pixel-corner-step) * 9),
+    calc(var(--pixel-corner-step) * 1) calc(var(--pixel-corner-step) * 9),
+    calc(var(--pixel-corner-step) * 1) calc(var(--pixel-corner-step) * 5),
+    calc(var(--pixel-corner-step) * 2) calc(var(--pixel-corner-step) * 5),
+    calc(var(--pixel-corner-step) * 2) calc(var(--pixel-corner-step) * 3),
+    calc(var(--pixel-corner-step) * 3) calc(var(--pixel-corner-step) * 3),
+    calc(var(--pixel-corner-step) * 3) calc(var(--pixel-corner-step) * 2),
+    calc(var(--pixel-corner-step) * 5) calc(var(--pixel-corner-step) * 2),
+    calc(var(--pixel-corner-step) * 5) calc(var(--pixel-corner-step) * 1),
+    calc(var(--pixel-corner-step) * 9) calc(var(--pixel-corner-step) * 1),
+    calc(var(--pixel-corner-step) * 9) 0,
+    calc(100% - var(--pixel-corner-step) * 9) 0,
+    calc(100% - var(--pixel-corner-step) * 9) calc(var(--pixel-corner-step) * 1),
+    calc(100% - var(--pixel-corner-step) * 5) calc(var(--pixel-corner-step) * 1),
+    calc(100% - var(--pixel-corner-step) * 5) calc(var(--pixel-corner-step) * 2),
+    calc(100% - var(--pixel-corner-step) * 3) calc(var(--pixel-corner-step) * 2),
+    calc(100% - var(--pixel-corner-step) * 3) calc(var(--pixel-corner-step) * 3),
+    calc(100% - var(--pixel-corner-step) * 2) calc(var(--pixel-corner-step) * 3),
+    calc(100% - var(--pixel-corner-step) * 2) calc(var(--pixel-corner-step) * 5),
+    calc(100% - var(--pixel-corner-step) * 1) calc(var(--pixel-corner-step) * 5),
+    calc(100% - var(--pixel-corner-step) * 1) calc(var(--pixel-corner-step) * 9),
+    100% calc(var(--pixel-corner-step) * 9),
+    100% calc(100% - var(--pixel-corner-step) * 9),
+    calc(100% - var(--pixel-corner-step) * 1) calc(100% - var(--pixel-corner-step) * 9),
+    calc(100% - var(--pixel-corner-step) * 1) calc(100% - var(--pixel-corner-step) * 5),
+    calc(100% - var(--pixel-corner-step) * 2) calc(100% - var(--pixel-corner-step) * 5),
+    calc(100% - var(--pixel-corner-step) * 2) calc(100% - var(--pixel-corner-step) * 3),
+    calc(100% - var(--pixel-corner-step) * 3) calc(100% - var(--pixel-corner-step) * 3),
+    calc(100% - var(--pixel-corner-step) * 3) calc(100% - var(--pixel-corner-step) * 2),
+    calc(100% - var(--pixel-corner-step) * 5) calc(100% - var(--pixel-corner-step) * 2),
+    calc(100% - var(--pixel-corner-step) * 5) calc(100% - var(--pixel-corner-step) * 1),
+    calc(100% - var(--pixel-corner-step) * 9) calc(100% - var(--pixel-corner-step) * 1),
+    calc(100% - var(--pixel-corner-step) * 9) 100%,
+    calc(var(--pixel-corner-step) * 9) 100%,
+    calc(var(--pixel-corner-step) * 9) calc(100% - var(--pixel-corner-step) * 1),
+    calc(var(--pixel-corner-step) * 5) calc(100% - var(--pixel-corner-step) * 1),
+    calc(var(--pixel-corner-step) * 5) calc(100% - var(--pixel-corner-step) * 2),
+    calc(var(--pixel-corner-step) * 3) calc(100% - var(--pixel-corner-step) * 2),
+    calc(var(--pixel-corner-step) * 3) calc(100% - var(--pixel-corner-step) * 3),
+    calc(var(--pixel-corner-step) * 2) calc(100% - var(--pixel-corner-step) * 3),
+    calc(var(--pixel-corner-step) * 2) calc(100% - var(--pixel-corner-step) * 5),
+    calc(var(--pixel-corner-step) * 1) calc(100% - var(--pixel-corner-step) * 5),
+    calc(var(--pixel-corner-step) * 1) calc(100% - var(--pixel-corner-step) * 9),
+    0 calc(100% - var(--pixel-corner-step) * 9)
+  );
 }
 
 .work-tile__visual {
   position: absolute;
   inset: 0;
-  background-color: var(--color-surface-dark);
+  background-color: #3d6989;
   background-size: cover;
   background-position: center;
 }
 
-.work-tile--kodak .work-tile__visual { background-color: #4a4a4a; }
-.work-tile--zermatt .work-tile__visual { background-color: #3a3a3a; background-image: url("../assets/images/Zermatt.jpg"); background-position: center top; }
-.work-tile--twix .work-tile__visual { background-color: #55483a; }
-.work-tile--norwich .work-tile__visual { background-color: #402f3a; }
+.work-tile--kodak .work-tile__visual { background-color: #3d6989; background-image: url("../assets/images/kodak-temp.png"); }
+.work-tile--zermatt .work-tile__visual { background-color: #3d6989; background-image: url("../assets/images/Zermatt.jpg"); background-position: center top; }
+.work-tile--twix .work-tile__visual { background-color: #3d6989; background-image: url("../assets/images/twix-temp.png"); }
+.work-tile--norwich .work-tile__visual { background-color: #3d6989; background-image: url("../assets/images/theatre-temp.jpg"); }
 
 .work-tile__logo {
   font-family: var(--font-display);
