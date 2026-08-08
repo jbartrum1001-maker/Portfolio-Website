@@ -179,20 +179,30 @@ body {
     rgba(10, 10, 10, 0.22);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0 0 16px 16px;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.6),
     inset 0 14px 20px -12px rgba(255, 255, 255, 0.25),
     inset 0 -1px 0 rgba(255, 255, 255, 0.05),
     0 8px 30px rgba(0, 0, 0, 0.3);
   z-index: 100;
 }
 
+.site-header::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 0 0 1px 1px;
+  background: linear-gradient(to right, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.05));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
 .site-header__inner {
-  max-width: var(--max-width);
   height: 100%;
-  margin-inline: auto;
-  padding-inline: var(--gutter);
+  padding-inline: calc(var(--gutter) * 2);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -498,10 +508,9 @@ body {
      see-through so the shared fixed swirl shows in the gutter around
      .about__pin's panel, same reasoning as .hero__pin.
 
-     No box-shadow either (every other section in the stack still has
-     one — see .work/.personal) — with hero and About now sharing one
-     continuous swirl, the "next card casts a shadow" seam read as a
-     dark band across what should be one uninterrupted background. */
+     No box-shadow either — with every section now sharing one
+     continuous swirl, a "next card casts a shadow" seam would read as
+     a dark band across what should be one uninterrupted background. */
   position: relative;
   padding-block: var(--space-md);
   /* Pixel-card border for .about__pin's panel, per a Balatro reference
@@ -1207,17 +1216,36 @@ body {
    WORK
 ----------------------------------------- */
 .work {
-  /* See .about's comment — no z-index, so .personal can paint over it
-     the same way .work paints over the frozen .about. overflow: hidden
-     here is what lets .work__pin's freeze self-limit once .work itself
-     has scrolled past, instead of staying glued under the nav forever.
+  /* .work__pin (setupWorkPin in main.js) freezes centered in the
+     viewport (a "settle in the middle" pause), then — instead of
+     relying on Personal to visually cover/hide it, which needs an
+     opaque, edge-to-edge Personal and conflicts with Personal having
+     About/CV-style transparent side gutters — its translateY growth is
+     CAPPED once .work's own natural bottom edge would catch up to the
+     frozen pin's bottom. Past that point the transform stays put
+     instead of continuing to grow, so the pin resumes moving at normal
+     scroll speed and visibly slides up and off screen — a real
+     "Personal pushes Work away" motion, not a cover/clip. See the
+     detailed comment in main.js for the position math (and for the
+     lerp smoothing on top of it, which eases the velocity change at
+     both the freeze and release points instead of snapping). Because
+     Work genuinely vacates the screen instead of being hidden behind
+     something opaque, Personal never needs its own opaque backdrop —
+     it can stay fully transparent like .about/.cv.
+
+     overflow: hidden is unrelated to any of that — it's containment
+     for the carousel itself: the carousel's own box (.work-carousel,
+     height: var(--slide-h)) runs taller than .work's own content box
+     at some viewport sizes, so without a clip here its bottom edge
+     pokes out past .work and shows up inside Personal's transparent
+     side gutters — confirmed by comparing their getBoundingClientRect()s
+     in a real browser.
 
      No background-color or box-shadow here on purpose, matching .about
      — the section needs to be see-through so the shared fixed swirl
      shows behind the carousel and around its edges, and a shadow cast
      onto the now-transparent .about would read as a seam across what
      should be one continuous swirl. */
-  position: relative;
   overflow: hidden;
   padding-block: var(--space-xl);
 }
@@ -1430,13 +1458,95 @@ body {
    PERSONAL PROJECTS
 ----------------------------------------- */
 .personal {
-  /* position: relative (no z-index) is load-bearing for the
-     stacking-card paint order against .work__pin — see the comment on
-     .about above. */
+  /* No background-color of its own — matches .about/.work/.cv, letting
+     the persistent swirl show through in the gutter around
+     .personal__pin's panel. .work__pin does still freeze-then-push
+     against this section (see .work's comment), but that effect no
+     longer needs Personal to be opaque — Work physically vacates the
+     screen itself via a capped transform, rather than relying on being
+     covered/hidden by something opaque scrolling over it. */
   position: relative;
-  padding-block: var(--space-xl);
-  background-color: var(--color-bg);
-  box-shadow: 0 -80px 120px -30px rgba(0, 0, 0, 0.7);
+  padding-block: var(--space-md);
+  /* Pixel-card border for .personal__pin, same recipe/reasoning as
+     .about's filter above — hosted here, on the clip-path-free parent
+     section, not on .personal__pin itself (clip-path clips its own
+     element's filter bleed straight back off — see gotcha #14). */
+  filter:
+    drop-shadow(6px 0 0 #1f2426)
+    drop-shadow(-6px 0 0 #1f2426)
+    drop-shadow(0 6px 0 #1f2426)
+    drop-shadow(0 -6px 0 #1f2426)
+    drop-shadow(4.25px 4.25px 0 #1f2426)
+    drop-shadow(-4.25px 4.25px 0 #1f2426)
+    drop-shadow(4.25px -4.25px 0 #1f2426)
+    drop-shadow(-4.25px -4.25px 0 #1f2426);
+}
+
+.personal__pin {
+  /* Same panel recipe as .about__pin — see its comment for the
+     pixel-corner step-pattern reasoning; this is a straight reuse of
+     the same --pixel-corner-step: 6px / 9-cell polygon and colour. */
+  --pixel-corner-step: 6px;
+  position: relative;
+  min-height: calc(100vh - var(--nav-height) - var(--space-lg));
+  display: flex;
+  align-items: center;
+  margin-inline: clamp(16px, 4vw, 72px);
+  padding: var(--space-xl) var(--space-lg);
+  background-color: #2e3537;
+  clip-path: polygon(
+    0 calc(var(--pixel-corner-step) * 9),
+    calc(var(--pixel-corner-step) * 1) calc(var(--pixel-corner-step) * 9),
+    calc(var(--pixel-corner-step) * 1) calc(var(--pixel-corner-step) * 5),
+    calc(var(--pixel-corner-step) * 2) calc(var(--pixel-corner-step) * 5),
+    calc(var(--pixel-corner-step) * 2) calc(var(--pixel-corner-step) * 3),
+    calc(var(--pixel-corner-step) * 3) calc(var(--pixel-corner-step) * 3),
+    calc(var(--pixel-corner-step) * 3) calc(var(--pixel-corner-step) * 2),
+    calc(var(--pixel-corner-step) * 5) calc(var(--pixel-corner-step) * 2),
+    calc(var(--pixel-corner-step) * 5) calc(var(--pixel-corner-step) * 1),
+    calc(var(--pixel-corner-step) * 9) calc(var(--pixel-corner-step) * 1),
+    calc(var(--pixel-corner-step) * 9) 0,
+    calc(100% - var(--pixel-corner-step) * 9) 0,
+    calc(100% - var(--pixel-corner-step) * 9) calc(var(--pixel-corner-step) * 1),
+    calc(100% - var(--pixel-corner-step) * 5) calc(var(--pixel-corner-step) * 1),
+    calc(100% - var(--pixel-corner-step) * 5) calc(var(--pixel-corner-step) * 2),
+    calc(100% - var(--pixel-corner-step) * 3) calc(var(--pixel-corner-step) * 2),
+    calc(100% - var(--pixel-corner-step) * 3) calc(var(--pixel-corner-step) * 3),
+    calc(100% - var(--pixel-corner-step) * 2) calc(var(--pixel-corner-step) * 3),
+    calc(100% - var(--pixel-corner-step) * 2) calc(var(--pixel-corner-step) * 5),
+    calc(100% - var(--pixel-corner-step) * 1) calc(var(--pixel-corner-step) * 5),
+    calc(100% - var(--pixel-corner-step) * 1) calc(var(--pixel-corner-step) * 9),
+    100% calc(var(--pixel-corner-step) * 9),
+    100% calc(100% - var(--pixel-corner-step) * 9),
+    calc(100% - var(--pixel-corner-step) * 1) calc(100% - var(--pixel-corner-step) * 9),
+    calc(100% - var(--pixel-corner-step) * 1) calc(100% - var(--pixel-corner-step) * 5),
+    calc(100% - var(--pixel-corner-step) * 2) calc(100% - var(--pixel-corner-step) * 5),
+    calc(100% - var(--pixel-corner-step) * 2) calc(100% - var(--pixel-corner-step) * 3),
+    calc(100% - var(--pixel-corner-step) * 3) calc(100% - var(--pixel-corner-step) * 3),
+    calc(100% - var(--pixel-corner-step) * 3) calc(100% - var(--pixel-corner-step) * 2),
+    calc(100% - var(--pixel-corner-step) * 5) calc(100% - var(--pixel-corner-step) * 2),
+    calc(100% - var(--pixel-corner-step) * 5) calc(100% - var(--pixel-corner-step) * 1),
+    calc(100% - var(--pixel-corner-step) * 9) calc(100% - var(--pixel-corner-step) * 1),
+    calc(100% - var(--pixel-corner-step) * 9) 100%,
+    calc(var(--pixel-corner-step) * 9) 100%,
+    calc(var(--pixel-corner-step) * 9) calc(100% - var(--pixel-corner-step) * 1),
+    calc(var(--pixel-corner-step) * 5) calc(100% - var(--pixel-corner-step) * 1),
+    calc(var(--pixel-corner-step) * 5) calc(100% - var(--pixel-corner-step) * 2),
+    calc(var(--pixel-corner-step) * 3) calc(100% - var(--pixel-corner-step) * 2),
+    calc(var(--pixel-corner-step) * 3) calc(100% - var(--pixel-corner-step) * 3),
+    calc(var(--pixel-corner-step) * 2) calc(100% - var(--pixel-corner-step) * 3),
+    calc(var(--pixel-corner-step) * 2) calc(100% - var(--pixel-corner-step) * 5),
+    calc(var(--pixel-corner-step) * 1) calc(100% - var(--pixel-corner-step) * 5),
+    calc(var(--pixel-corner-step) * 1) calc(100% - var(--pixel-corner-step) * 9),
+    0 calc(100% - var(--pixel-corner-step) * 9)
+  );
+}
+
+.personal__pin > .wrapper {
+  /* .personal__pin is a flex container (for vertical centering) — a
+     flex item shrinks to its content width by default instead of
+     filling the row, same reasoning as .about__grid's width: 100%. */
+  width: 100%;
 }
 
 .personal__grid {
@@ -1462,8 +1572,90 @@ body {
    CV
 ----------------------------------------- */
 .cv {
-  padding-block: var(--space-xl);
-  background-color: var(--color-surface);
+  /* No background-color of its own — .cv__pin is the panel now, same
+     About-panel treatment as .about__pin. .cv__document keeps its own
+     hardcoded light "paper" card look regardless, unaffected by the
+     panel colour behind it (see its comment further down). */
+  position: relative;
+  padding-block: var(--space-md);
+  /* Pixel-card border for .cv__pin — same recipe/reasoning as
+     .about's filter (hosted on the clip-path-free parent section, not
+     on .cv__pin itself — see gotcha #14). */
+  filter:
+    drop-shadow(6px 0 0 #1f2426)
+    drop-shadow(-6px 0 0 #1f2426)
+    drop-shadow(0 6px 0 #1f2426)
+    drop-shadow(0 -6px 0 #1f2426)
+    drop-shadow(4.25px 4.25px 0 #1f2426)
+    drop-shadow(-4.25px 4.25px 0 #1f2426)
+    drop-shadow(4.25px -4.25px 0 #1f2426)
+    drop-shadow(-4.25px -4.25px 0 #1f2426);
+}
+
+.cv__pin {
+  /* Same panel recipe as .about__pin — see its comment for the
+     pixel-corner step-pattern reasoning. */
+  --pixel-corner-step: 6px;
+  position: relative;
+  min-height: calc(100vh - var(--nav-height) - var(--space-lg));
+  display: flex;
+  align-items: center;
+  margin-inline: clamp(16px, 4vw, 72px);
+  padding: var(--space-xl) var(--space-lg);
+  background-color: #2e3537;
+  clip-path: polygon(
+    0 calc(var(--pixel-corner-step) * 9),
+    calc(var(--pixel-corner-step) * 1) calc(var(--pixel-corner-step) * 9),
+    calc(var(--pixel-corner-step) * 1) calc(var(--pixel-corner-step) * 5),
+    calc(var(--pixel-corner-step) * 2) calc(var(--pixel-corner-step) * 5),
+    calc(var(--pixel-corner-step) * 2) calc(var(--pixel-corner-step) * 3),
+    calc(var(--pixel-corner-step) * 3) calc(var(--pixel-corner-step) * 3),
+    calc(var(--pixel-corner-step) * 3) calc(var(--pixel-corner-step) * 2),
+    calc(var(--pixel-corner-step) * 5) calc(var(--pixel-corner-step) * 2),
+    calc(var(--pixel-corner-step) * 5) calc(var(--pixel-corner-step) * 1),
+    calc(var(--pixel-corner-step) * 9) calc(var(--pixel-corner-step) * 1),
+    calc(var(--pixel-corner-step) * 9) 0,
+    calc(100% - var(--pixel-corner-step) * 9) 0,
+    calc(100% - var(--pixel-corner-step) * 9) calc(var(--pixel-corner-step) * 1),
+    calc(100% - var(--pixel-corner-step) * 5) calc(var(--pixel-corner-step) * 1),
+    calc(100% - var(--pixel-corner-step) * 5) calc(var(--pixel-corner-step) * 2),
+    calc(100% - var(--pixel-corner-step) * 3) calc(var(--pixel-corner-step) * 2),
+    calc(100% - var(--pixel-corner-step) * 3) calc(var(--pixel-corner-step) * 3),
+    calc(100% - var(--pixel-corner-step) * 2) calc(var(--pixel-corner-step) * 3),
+    calc(100% - var(--pixel-corner-step) * 2) calc(var(--pixel-corner-step) * 5),
+    calc(100% - var(--pixel-corner-step) * 1) calc(var(--pixel-corner-step) * 5),
+    calc(100% - var(--pixel-corner-step) * 1) calc(var(--pixel-corner-step) * 9),
+    100% calc(var(--pixel-corner-step) * 9),
+    100% calc(100% - var(--pixel-corner-step) * 9),
+    calc(100% - var(--pixel-corner-step) * 1) calc(100% - var(--pixel-corner-step) * 9),
+    calc(100% - var(--pixel-corner-step) * 1) calc(100% - var(--pixel-corner-step) * 5),
+    calc(100% - var(--pixel-corner-step) * 2) calc(100% - var(--pixel-corner-step) * 5),
+    calc(100% - var(--pixel-corner-step) * 2) calc(100% - var(--pixel-corner-step) * 3),
+    calc(100% - var(--pixel-corner-step) * 3) calc(100% - var(--pixel-corner-step) * 3),
+    calc(100% - var(--pixel-corner-step) * 3) calc(100% - var(--pixel-corner-step) * 2),
+    calc(100% - var(--pixel-corner-step) * 5) calc(100% - var(--pixel-corner-step) * 2),
+    calc(100% - var(--pixel-corner-step) * 5) calc(100% - var(--pixel-corner-step) * 1),
+    calc(100% - var(--pixel-corner-step) * 9) calc(100% - var(--pixel-corner-step) * 1),
+    calc(100% - var(--pixel-corner-step) * 9) 100%,
+    calc(var(--pixel-corner-step) * 9) 100%,
+    calc(var(--pixel-corner-step) * 9) calc(100% - var(--pixel-corner-step) * 1),
+    calc(var(--pixel-corner-step) * 5) calc(100% - var(--pixel-corner-step) * 1),
+    calc(var(--pixel-corner-step) * 5) calc(100% - var(--pixel-corner-step) * 2),
+    calc(var(--pixel-corner-step) * 3) calc(100% - var(--pixel-corner-step) * 2),
+    calc(var(--pixel-corner-step) * 3) calc(100% - var(--pixel-corner-step) * 3),
+    calc(var(--pixel-corner-step) * 2) calc(100% - var(--pixel-corner-step) * 3),
+    calc(var(--pixel-corner-step) * 2) calc(100% - var(--pixel-corner-step) * 5),
+    calc(var(--pixel-corner-step) * 1) calc(100% - var(--pixel-corner-step) * 5),
+    calc(var(--pixel-corner-step) * 1) calc(100% - var(--pixel-corner-step) * 9),
+    0 calc(100% - var(--pixel-corner-step) * 9)
+  );
+}
+
+.cv__pin > .wrapper {
+  /* .cv__pin is a flex container (for vertical centering) — a flex
+     item shrinks to its content width by default instead of filling
+     the row, same reasoning as .about__grid's width: 100%. */
+  width: 100%;
 }
 
 .cv__content {

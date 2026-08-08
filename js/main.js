@@ -305,10 +305,9 @@ if (heroParallaxEl && heroTextEl) {
   // it. That gap let the hero text peek back out before Work's own
   // content arrived. Fading it out at the midpoint of About's own
   // scroll range instead gives it a comfortable margin — gone well
-  // before About's bottom gets anywhere near that band. Measured
-  // similarly to setupStackPin's naturalTop — .about doesn't transform,
-  // so its position is stable document-wise, but it's remeasured on
-  // load/resize since images (the About portrait) can still shift it
+  // before About's bottom gets anywhere near that band. .about doesn't
+  // transform, so its document position is stable, but it's remeasured
+  // on load/resize since images (the About portrait) can still shift it
   // after this script's first run.
   let aboutFadeScrollY = Infinity;
 
@@ -343,67 +342,110 @@ if (heroParallaxEl && heroTextEl) {
 }
 
 // -----------------------------------------
-// Work stacking card — same no-sticky, no-fixed technique as the hero
-// freeze above, reused for .work__pin so Personal can visually ride
-// over it. The pin scrolls normally right up until its top edge reaches
-// nav-height; from that scrollY on, a translateY that grows 1:1 with
-// scroll exactly cancels further motion, holding it there. The next
-// section (plain, untouched, normal 1x scroll speed) keeps climbing the
-// document as usual and visually rides over the frozen one — no
-// z-index/sticky trickery needed for the "cover" part, it falls out of
-// plain DOM paint order (see the CSS comments on .work for the one
-// thing that has to stay true for that: the section can't carry its
-// own z-index).
+// Work stacking card — same no-sticky, no-fixed translateY-hold
+// technique as the hero freeze above, but anchored to the viewport's
+// vertical CENTER instead of nav-height: .work__pin scrolls normally
+// until it would be centered on screen, then freezes there (a "settle
+// in the middle" pause) rather than settling under the nav bar.
 //
-// About used to get this same treatment (.about__pin), but it was
-// dropped: once .work's own section background went transparent (so
-// the persistent swirl shows through — see .work's CSS comment), there
-// was nothing opaque left to cover the frozen About panel once it hit
-// .about's own overflow: hidden boundary. Instead of a smooth cover, it
-// just vanished at a hard rectangular clip line — a visible "invisible
-// border" cutoff mid-scroll. About now scrolls normally, uninterrupted,
-// like Personal/CV/Contact already do.
+// Earlier versions relied on Personal visually COVERING the frozen pin
+// (translateY growing unbounded, with .work's own overflow: hidden
+// eventually clipping it away invisibly) — that needed Personal to be
+// an opaque, edge-to-edge backdrop, which directly conflicted with
+// Personal having About/CV-style transparent side gutters: an inset
+// panel can only cover the CENTER of the full-width frozen carousel,
+// leaving its sides exposed to a leak or a hard, ungutter'd clip.
 //
-// The transform goes on the INNER .work__pin, never on .work itself —
-// the outer section stays untransformed, at its own natural bounded
-// height, with overflow: hidden. That's what makes the freeze
-// self-limiting: once the outer section's own box has scrolled fully
-// past the viewport, its overflow: hidden clips the (still "frozen")
-// pin away with it, same as .hero / .hero__pin above. Applying the
-// transform to the section itself instead — tried first — freezes
-// forever with nothing to clip it, so it stays glued under the nav bar
-// permanently and shows back through once the covering section's own
-// box has scrolled on past that same band.
+// This version caps translateY's growth instead of letting it run
+// unbounded: once .work's own natural (untransformed) bottom edge
+// would reach the frozen pin's bottom edge, translateY stops
+// increasing. Past that point the pin behaves like a normal in-flow
+// element again (just offset by the now-fixed transform), so it
+// resumes moving upward at the ordinary 1:1 scroll rate — it visibly
+// slides up and off screen, "pushed" by Personal scrolling in normally
+// underneath, rather than sitting frozen and then vanishing behind an
+// opaque cover. The cap point is exactly where Personal's own natural
+// top would visually touch the frozen pin's bottom anyway (since
+// sections are adjacent in the document with no gap), so the two
+// stay in visual contact the whole time it's sliding away — genuinely
+// pushed, not just released early. Because Work now vacates the
+// screen itself instead of relying on being hidden behind something
+// opaque, Personal never needs an opaque backdrop of its own — it can
+// stay fully transparent, matching .about/.cv exactly. Note the cap
+// (maxTranslateY) works out to sectionBottom - pinHeight - naturalTop
+// regardless of where the freeze itself is anchored on screen — it's
+// purely "how much .work-internal space is left below the pin," so
+// moving the anchor from nav-height to viewport-center didn't need any
+// change to that half of the math.
 // -----------------------------------------
-function setupStackPin(pinEl) {
+function setupWorkPin(pinEl) {
   if (!pinEl) return;
 
+  const sectionEl = pinEl.parentElement;
   let freezeScrollY = 0;
+  let maxTranslateY = 0;
+  // The raw scroll-derived target has a hard velocity change at both the
+  // freeze point and the release point — scroll speed suddenly drops to
+  // 0, then later suddenly resumes. Applying that target straight to the
+  // transform (as an earlier version did) reads as the pin "hitting a
+  // wall" and bouncing off it, especially with trackpad/wheel momentum
+  // still carrying the page's own scroll smoothly through that instant.
+  // currentTranslateY lags the target and eases toward it every frame
+  // instead, so the velocity change gets smoothed out over a few frames
+  // rather than landing in one.
+  let currentTranslateY = 0;
+  let animating = false;
 
   function measure() {
     // Clear any existing transform first so the measurement reflects the
-    // pin's natural, untransformed document position.
+    // pin's natural, untransformed document position and height.
+    const prevTransform = pinEl.style.transform;
     pinEl.style.transform = '';
-    const naturalTop = pinEl.getBoundingClientRect().top + window.scrollY;
-    freezeScrollY = naturalTop - navHeight;
+    const pinRect = pinEl.getBoundingClientRect();
+    const sectionBottom = sectionEl.getBoundingClientRect().bottom + window.scrollY;
+    const naturalTop = pinRect.top + window.scrollY;
+    const centeredTop = (window.innerHeight - pinRect.height) / 2;
+    freezeScrollY = naturalTop - centeredTop;
+    maxTranslateY = Math.max(sectionBottom - pinRect.height - naturalTop, 0);
+    pinEl.style.transform = prevTransform;
   }
 
-  function update() {
-    const scrollY = window.scrollY;
-    const translateY = scrollY > freezeScrollY ? scrollY - freezeScrollY : 0;
-    pinEl.style.transform = translateY ? `translateY(${translateY}px)` : '';
+  function targetTranslateY() {
+    return Math.min(Math.max(window.scrollY - freezeScrollY, 0), maxTranslateY);
+  }
+
+  function tick() {
+    const target = targetTranslateY();
+    const delta = target - currentTranslateY;
+    if (Math.abs(delta) < 0.05) {
+      currentTranslateY = target;
+      pinEl.style.transform = currentTranslateY ? `translateY(${currentTranslateY}px)` : '';
+      animating = false;
+      return;
+    }
+    currentTranslateY += delta * 0.18;
+    pinEl.style.transform = `translateY(${currentTranslateY}px)`;
+    requestAnimationFrame(tick);
+  }
+
+  function requestTick() {
+    if (!animating) {
+      animating = true;
+      requestAnimationFrame(tick);
+    }
   }
 
   measure();
-  update();
-  window.addEventListener('scroll', () => requestAnimationFrame(update), { passive: true });
+  currentTranslateY = targetTranslateY();
+  pinEl.style.transform = currentTranslateY ? `translateY(${currentTranslateY}px)` : '';
+  window.addEventListener('scroll', requestTick, { passive: true });
   window.addEventListener('resize', () => {
     measure();
-    update();
+    requestTick();
   });
 }
 
-setupStackPin(document.querySelector('.work__pin'));
+setupWorkPin(document.querySelector('.work__pin'));
 
 // -----------------------------------------
 // Work carousel — center slide is the open link,

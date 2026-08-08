@@ -134,56 +134,99 @@ scrolling normally underneath, which let the text peek back out before Work's co
 arrived. Fading at the *midpoint* of About's scroll range instead gives it a
 comfortable margin — gone well before that gap can open up.
 
-**Scroll-stacking cards (Work → Personal).** Reuses the hero parallax's exact freeze
-technique — no `position: sticky`/`fixed` here either — via a generalized
-`setupStackPin(pinEl)` in `js/main.js`, now applied only to `.work__pin` (About used to
-get this too; see below). The pin scrolls normally until its top edge reaches
-`--nav-height` from the viewport top; past that scrollY, `translateY` grows 1:1 with
-scroll (no 0.4x drag phase like hero — just an instant freeze), holding it in place
-while the next section (plain, untouched, normal scroll speed) climbs the document as
-usual and visually rides over it. Personal is the last section in the chain (covers
-`.work__pin`) but is not itself pinned — the freeze/cover chain stops there by explicit
-design choice, so CV scrolls in normally afterward with no special treatment.
+**Scroll-stacking cards (Work → Personal) — a genuine push-off, not a freeze-and-cover.**
+`.work__pin` freezes in place via the same no-`position: sticky`/`fixed` `translateY`-hold
+technique as the hero freeze, but anchored to the viewport's vertical *center* rather
+than `--nav-height` — it scrolls normally, then settles in the middle of the screen (a
+"settle in the middle" pause) and holds there while Personal scrolls up underneath.
+Implemented as `setupWorkPin` in `js/main.js` — a purpose-built function, not the
+generic `setupStackPin` the doc used to describe here (removed; see below for why).
 
-**About dropped out of this chain — it now scrolls continuously, uninterrupted, like
-Personal/CV/Contact.** `setupStackPin(document.querySelector('.about__pin'))` was
-removed from `js/main.js`, and `.about` lost its `overflow: hidden` (nothing left to
-clip — see gotcha #8's general rule, which `.about` no longer needs an exception to).
-This was a direct fix for a "cut off by an invisible border" complaint: once `.work`'s
-own background went transparent (see "About panel"/Work carousel below), there was
-nothing opaque left to cover the frozen About panel once it hit `.about`'s own
-`overflow: hidden` boundary — instead of a smooth cover, the panel just vanished at a
-hard rectangular clip line mid-scroll. Letting About scroll normally instead means
-there's no freeze to clip away in the first place. `.work__pin` still freezes so
-Personal can cover it, untouched by this change — only About was affected.
+This landed here after several different designs, because two things it needed kept
+pulling against each other: Work settling then getting visibly **pushed away**, and
+Personal having the **same About-style panel** (inset gutters, swirl showing through
+the sides) as About/CV.
 
-Two things have to stay true for the remaining `.work__pin` → `.personal` link (and for
-`.about__pin` painting over the frozen hero text, even though About no longer freezes
-itself) to keep working, both easy to break by accident:
+1. **Original design: freeze near the nav, Personal as an opaque full-bleed cover.**
+   `translateY` grew unbounded once frozen; `.work`'s own `overflow: hidden` eventually
+   clipped the frozen pin away once `.work`'s own box scrolled fully past, and
+   Personal — a plain, edge-to-edge `background-color` rectangle with an upward-cast
+   `box-shadow` — visually covered it in the meantime via ordinary DOM paint order (no
+   `z-index` on either section). Worked, but Personal had no panel.
+2. **Personal given the About-style panel (inset gutters, transparent section).** Broke
+   the cover immediately: an inset panel can only cover the *center* of the full-width
+   frozen carousel, so its sides stayed exposed until `.work`'s clip caught up — read
+   as a hard, jarring cutoff, confirmed in the user's real browser (this tool's own
+   screenshots weren't reliable evidence either way during this investigation — see
+   gotcha #13).
+3. **Freeze dropped entirely.** Work just scrolled normally, like About already does.
+   Fixed the cutoff, but lost the settle/push effect, and surfaced an unrelated bug:
+   `.work-carousel`'s own box runs taller than `.work`'s content box at some viewport
+   sizes, so removing `overflow: hidden` let it visually leak into Personal's
+   transparent gutters — `overflow: hidden` on `.work` had been doing double duty
+   (freeze self-limiting *and* carousel containment) the whole time.
+4. **Freeze restored, Personal given a full-bleed opaque backdrop again** (colour-matched
+   to the panel colour, not `var(--color-bg)` — a near-black backdrop behind a lighter
+   panel read as a stark seam) **with the panel floating on top of it.** Produced a
+   clean push, confirmed against a user-supplied mockup — but sacrificed the
+   swirl-through-gutters look Personal was supposed to have.
+5. **User explicitly reverted Personal back to plain** (no panel, no freeze-dependent
+   backdrop) **to reset, then asked for the panel back** — at which point dropping the
+   freeze (step 3's fix) was reapplied so Personal could go back to being genuinely
+   transparent, same as About/CV.
+6. **Final design: keep the freeze, but make Work push itself away instead of relying
+   on Personal to cover it.** `setupWorkPin` freezes `.work__pin` centered in the
+   viewport, then **caps `translateY`'s growth** once `.work`'s own natural
+   (untransformed) bottom edge would reach the frozen pin's bottom, instead of letting
+   it grow unbounded and relying on an invisible clip. Past that cap, the transform
+   stops changing, so the pin resumes moving at ordinary 1:1 scroll speed and visibly
+   *slides* up and off screen — "pushed" by Personal scrolling in normally underneath,
+   not covered by it. Because Work now genuinely vacates the screen instead of needing
+   to be hidden behind something opaque, Personal can be fully transparent with its own
+   inset panel (see "Personal Projects and CV panels" below) with zero conflict — the
+   two requirements that fought each other in steps 1–5 weren't actually in tension
+   once the *mechanism* changed from "cover" to "push."
 
-- The transform must go on the **inner** `.work__pin`, never on the outer `.work`
-  section. The outer section stays untransformed, at its own natural bounded height,
-  with `overflow: hidden` — that's what makes the freeze self-limiting (the frozen pin
-  gets clipped away once the outer section's own box has scrolled fully past).
-  Transforming the section itself instead (tried first, back when About also worked
-  this way) freezes forever with nothing to clip it, so it stays glued under the nav
-  bar permanently and shows back through once the covering section's box has scrolled
-  on past that same band. See gotcha #8 below.
-- None of `.about`, `.work`, `.personal` may carry a `z-index` — only `position:
-  relative`. The "next thing covers the frozen/earlier one" effect (both About-over-
-  hero-text and Work-over-Personal) relies entirely on plain DOM paint order; a
-  positioned element with an explicit `z-index` jumps stacking layers and paints
-  above/below regardless of DOM order, breaking the illusion. This is why `.personal`
-  has `position: relative` (load-bearing — needed so it stacks correctly against
-  `.work__pin`) while `.cv` deliberately does not (it was never part of the cover
-  chain, so it never needed it). If the chain is ever extended to CV, `.cv` will need
-  `position: relative` added the same way.
+The cap point is chosen so Work and Personal stay in visual contact the whole time
+Work is sliding away, not just released early: it's exactly where Personal's own
+natural top edge would visually touch the frozen pin's bottom edge (sections are
+adjacent in the document with no gap), which reduces to `sectionBottom - pinHeight -
+naturalTop` — see the full derivation in `main.js`'s comment above `setupWorkPin`. That
+math is independent of *where* the freeze itself is anchored on screen, which is why
+re-anchoring the freeze from nav-height to viewport-center (a later, separate request)
+needed no change to the cap calculation.
 
-`.personal` still carries the upward-cast `box-shadow: 0 -80px 120px -30px
-rgba(0,0,0,0.7)` `.about`/`.work` originally had, for a "next card casts a shadow on
-the one it's covering" depth cue — `.work` itself dropped this (see Work carousel
-below) once its own background went transparent, for the same seam reason `.about`
-dropped it first.
+**Motion is lerp-smoothed, not applied directly from the scroll position.** The raw
+scroll-derived target has a hard velocity discontinuity at both the freeze point
+(scroll speed drops to 0 instantly) and the release point (resumes instantly) — applying
+it straight to the transform (an earlier version of `setupWorkPin` did exactly this)
+read as the pin "hitting a wall and bouncing off it," especially under trackpad/wheel
+scroll momentum. Fixed by keeping a separate `currentTranslateY` that eases 18% of the
+way toward the scroll-derived target every `requestAnimationFrame`, instead of snapping
+straight to it — the loop self-terminates once within 0.05px of the target rather than
+running forever. See gotcha #17.
+
+`.work__pin` and `.work` (`overflow: hidden`, no `z-index`) still matter for the same
+structural reasons as before (see gotcha #8), but the "next section covers the frozen
+one via plain DOM paint order" rule that used to govern the `.work__pin` → `.personal`
+relationship no longer applies there — nothing needs to visually paint over anything
+between Work and Personal anymore, since Work moves itself out of the way. That rule
+still governs `.about__pin` painting over the frozen hero text, untouched by any of
+this (see below).
+
+**About dropped out of this kind of chain entirely, well before the Work/Personal saga
+above — it now scrolls continuously, uninterrupted, like Personal/CV/Contact.**
+`setupStackPin(document.querySelector('.about__pin'))` was removed from `js/main.js`,
+and `.about` lost its `overflow: hidden` (nothing left to clip — see gotcha #8's
+general rule, which `.about` no longer needs an exception to). This was a direct fix
+for a "cut off by an invisible border" complaint: once `.work`'s own background went
+transparent (see "About panel"/Work carousel below), there was nothing opaque left to
+cover the frozen About panel once it hit `.about`'s own `overflow: hidden` boundary —
+instead of a smooth cover, the panel just vanished at a hard rectangular clip line
+mid-scroll. This is the *exact same failure mode* Work/Personal hit later (step 2
+above) — dropping About's freeze was effectively the first attempt at Work/Personal's
+problem too, tried long before the push-based redesign resolved it without giving up
+the settle effect.
 
 **Tried, reverted, then successfully rebuilt: animated section backgrounds.** An early
 attempt at a decorative moving background behind About/Work/Personal/CV content — a
@@ -591,11 +634,50 @@ regardless of the photo).
 
 **Site header glass.** `.site-header` (`position: fixed`, `backdrop-filter: blur(20px)
 saturate(180%)`) uses two off-center `radial-gradient`s (not a single flat linear fade)
-plus a bright `inset` top rim and a softer blurred `inset` glow beneath it, so the
-highlight reads as directional light catching curved glass rather than a uniform wash.
-The base fill under those gradients is `rgba(10, 10, 10, ...)` — retuned from `0.45`
-opacity down to `0.22` on feedback that the bar felt too dark; letting more of the
-blurred swirl color show through instead of a near-black glass tint.
+plus a softer blurred `inset` glow beneath the top edge, so the highlight reads as
+directional light catching curved glass rather than a uniform wash. The base fill under
+those gradients is `rgba(10, 10, 10, ...)` — retuned from `0.45` opacity down to `0.22`
+on feedback that the bar felt too dark; letting more of the blurred swirl color show
+through instead of a near-black glass tint.
+
+The bar's bottom two corners are rounded (`border-radius: 0 0 16px 16px`) — a plain
+smooth radius, not the pixel-staircase `clip-path` `.about__pin`/`.work-tile` use;
+`.site-header` is a much smaller, simpler element and didn't need that treatment.
+
+The bar's bright edge highlight used to be a flat `inset 0 1px 0 rgba(255,255,255,0.6)`
+box-shadow line straight across the *top* — removed per feedback that it read as a hard
+line rather than a glass shine. In its place, `.site-header::after` is a gradient "rim
+light" tracing the bar's *bottom-left* edge instead (the edge that already looked right,
+per feedback), wrapped up the left side and around the rounded corner on a follow-up
+request. It's a masked ring pseudo-element, not a plain CSS `border`, because two
+different limits of `border` surfaced while building it — see gotcha #15 for the full
+debugging trail:
+  - A plain `border-left`/`border-bottom` pair needed very different width/alpha values
+    to both stay visible (the header's own bright top-left `radial-gradient` fill nearly
+    swallows a thin, low-alpha line) and meet cleanly at the rounded corner (`border-
+    radius` only blends two border sides without a gap when their width and colour
+    match exactly).
+  - Even once unified to one flat colour, a `linear-gradient` can't be applied via
+    `border-color`, and `border-image` (which *can* take a gradient) ignores `border-
+    radius` entirely, painting a hard rectangular corner instead of a curved one.
+  The fix: `.site-header::after` — `position: absolute; inset: 0; border-radius:
+  inherit;` with a `linear-gradient(to right, rgba(255,255,255,0.4), rgba(255,255,255,
+  0.05))` background, masked down to a thin ring via `padding: 0 0 1px 1px` (the ring's
+  per-side thickness — 0 on top/right, 1px on bottom/left) plus the standard `mask:
+  linear-gradient(...) content-box, linear-gradient(...); mask-composite: exclude;`
+  trick. Because the ring's geometry comes from the *inherited* `border-radius`, it still
+  curves smoothly around the bottom-left corner like a real border, but can carry a
+  gradient fill a plain border can't.
+
+`.site-header__inner` no longer has `max-width: var(--max-width)` — on a wide monitor
+that centered the logo/nav within the site's 1200px content column, leaving the header
+bar's own edges empty and the logo/nav pulled inward, "awkwardly sat in the middle" per
+feedback. It's now just `padding-inline: calc(var(--gutter) * 2)` with no max-width, so
+the logo and nav always sit a fixed distance from the *actual* viewport edge at any
+width, instead of from a capped inner column. The `* 2` (48px total, up from the
+sitewide `--gutter: 24px`) was a follow-up "push it out further" request specific to the
+header — `--gutter` itself is untouched and every other section still uses its original
+24px value.
 
 **Bottom progressive-blur band.** `.bottom-glass` (fixed to the viewport bottom, ~130px
 tall, present sitewide, `pointer-events: none`) fakes a smoothly graduated blur — which a
@@ -611,6 +693,27 @@ plain color animation, no blend-mode or gradient-text trickery. (An earlier vers
 `background-clip: text` with a moving gradient band sweeping across white letters;
 replaced because the actual ask was for the whole word to read red and breathe in
 intensity together, not a highlight travelling through otherwise-white text.)
+
+**Personal Projects and CV panels — reuse About's panel recipe exactly.**
+`.personal__pin` and `.cv__pin` are byte-for-byte the same treatment as `.about__pin`:
+the same `--pixel-corner-step: 6px` 9-cell pixel-staircase `clip-path` polygon, the same
+`#2e3537` panel `background-color`, the same `margin-inline: clamp(16px, 4vw, 72px)`
+gutter, and the same `min-height: calc(100vh - var(--nav-height) - var(--space-lg))` +
+`display: flex; align-items: center` centering. `.personal`/`.cv` (the plain, transparent
+parent sections) carry the same 8-value pixel-card border `filter: drop-shadow(...)`
+stack as `.about` does, for the same clip-path/filter-ordering reason (gotcha #14) —
+hosted on the clip-path-free parent, not the clip-path'd pin itself. Markup mirrors
+About's structure too: `<section class="personal"><div class="personal__pin"><div
+class="wrapper">…`. Added on an explicit request to make Personal and CV "match About."
+`.cv__document`'s own hardcoded light "paper" card look (below) is unaffected either
+way — it just sits on top of whichever background is behind it.
+
+Personal's panel went through the freeze/push saga described under "Scroll-stacking
+cards" above before landing on this exact treatment being safe to use — an early, more
+literal reading of "match About" (Personal fully transparent, panel and all, from the
+very start) briefly broke Work's settle-and-cover effect, and the eventual fix was to
+change *Work's* mechanism rather than compromise Personal's panel. CV never had this
+problem — nothing freezes against it — so its panel was uneventful by comparison.
 
 **CV document — real content, expand/collapse, width.** `.cv__document` holds Jack's
 actual CV text (profile / three education entries / three experience roles with bullet
@@ -881,6 +984,68 @@ blend-mode elements, even though the cursor itself is gone.
     any future effect needs a `filter` (drop-shadow or otherwise) on an element that also
     has `clip-path`, expect this exact failure and use the same fix.
 
+15. **A thin, low-alpha `border` can be effectively invisible against a bright
+    background gradient underneath it — and a gradient *fill* needs a completely
+    different technique than `border` anyway.** Hit building the site header's
+    bottom-left rim light (see "Site header glass" above): a `border-left: 1px solid
+    rgba(255,255,255,0.14)` (matching the existing, clearly-visible `border-bottom`)
+    rendered as nothing along the flat part of the left edge — confirmed via
+    `getComputedStyle` that the border was genuinely applied, and via a `4px solid
+    magenta` test border that it does render at that position, so it wasn't a
+    stacking/paint-order bug. The real cause: the header's `background` has a
+    `radial-gradient` brightest near the top-left corner (see "Site header glass"), and
+    a low-alpha white line has very little contrast against an already-near-white area
+    — even boosting alpha to `0.6` at `1px` wasn't enough; `2px` width was what actually
+    crossed the visibility threshold. Once visible, a second problem appeared: mismatched
+    width/alpha between the (boosted) left border and the (original, thinner/dimmer)
+    bottom border left a visible gap where they met at the rounded corner, because
+    `border-radius` corner rendering only blends cleanly between two border sides when
+    their width and colour are identical — unifying both into one `border-width`/
+    `border-color` declaration fixed the gap. Finally, asked to make that unified line a
+    left-to-right *gradient* instead of a flat colour: plain `border-color` can't take a
+    gradient, and `border-image` (which can) ignores `border-radius` and paints a hard
+    rectangular corner instead of a curved one — so the border approach was abandoned
+    for a masked gradient-filled `::after` ring instead (see "Site header glass" for the
+    implementation). **Lesson: for any edge highlight that needs to (a) survive a bright
+    background underneath, or (b) carry a gradient while still respecting
+    `border-radius`, reach for the mask-ring `::after` + `padding` + `mask-composite:
+    exclude` pattern directly instead of starting with a plain `border` and discovering
+    these limits one at a time.**
+
+16. **Scripting `window.scrollTo()` for testing without `{behavior: 'instant'}`
+    inherits the sitewide `scroll-behavior: smooth` CSS (`html`, see "Scrolling is
+    plain, sitewide" above) — the scroll animates over time instead of jumping
+    instantly, so reading `window.scrollY`/`getBoundingClientRect()` immediately
+    afterward can capture a mid-animation position, not the final one.** Hit
+    repeatedly while debugging the Work push effect: a plain `window.scrollTo(0, y)`
+    followed straight away by a position read gave confusing, seemingly-inconsistent
+    numbers between otherwise-identical test runs, which briefly looked like a real
+    bug in the freeze/push math. It wasn't — it was the read racing the animation.
+    **Always pass `{top, behavior: 'instant'}`** (or temporarily set
+    `document.documentElement.style.scrollBehavior = 'auto'`) when scripting scroll
+    positions to test a scroll-linked effect, and prefer waiting a couple of
+    `requestAnimationFrame` ticks before reading layout after any scroll, since even
+    an instant scroll's *effects* (our own `scroll` listeners) are themselves
+    RAF-deferred.
+
+17. **A hard freeze/release in a scroll-linked transform — scroll velocity going from
+    full speed to 0, or back again, within a single frame — reads as the frozen
+    element "hitting a wall and bouncing off it," even though the underlying
+    *position* math has no discontinuity, only a velocity one.** Hit building the
+    Work push effect's freeze and release points (see "Scroll-stacking cards" above):
+    applying the raw scroll-derived, clamped target straight to the transform was
+    reported as "juddery" and feeling like it kept "bouncing off" the freeze point —
+    human perception is sensitive to sudden velocity changes even when position stays
+    continuous, especially under trackpad/wheel momentum that's still smoothly
+    decelerating the page's own scroll through that same instant. **Fix: lerp the
+    applied transform toward the scroll-derived target every frame instead of setting
+    it directly** — `setupWorkPin` in `main.js` keeps a `currentTranslateY` that
+    closes 18% of the remaining distance to the target each `requestAnimationFrame`,
+    self-terminating once within 0.05px rather than running an animation loop
+    forever. Any future scroll-linked freeze/release effect should expect this same
+    "bouncing" complaint if it applies its target directly, and reach for this same
+    lerp pattern rather than re-discovering it.
+
 ## Conventions
 
 - Work section-by-section, checking in before moving to the next section — that's how
@@ -923,7 +1088,29 @@ blend-mode elements, even though the cursor itself is gone.
   added (Balatro-style drifting squares, colours picked off the same reference), then
   tuned through several rounds — speed bumped then reverted, brightness raised,
   chromatic-aberration fringe attempted twice before landing on the opaque-underneath
-  technique, fringe offset tightened, bloom added, particle count reduced).
+  technique, fringe offset tightened, bloom added, particle count reduced) → site header
+  given rounded bottom corners, its flat top rim-light swapped for a bottom-left gradient
+  rim light (a plain `border` hit contrast, corner-gap, and gradient-vs-`border-radius`
+  limits in turn before landing on a masked `::after` ring — see gotcha #15) → header nav
+  content un-capped from the site's `--max-width` column and given doubled edge gutter so
+  the logo/nav always sit a fixed distance from the true viewport edge → About panel's
+  wide-monitor "floaty"/boilerplate look diagnosed (forced near-100vh panel height +
+  uncapped grid width leaving dead space around short placeholder copy) and a fix
+  prototyped (content-hugging panel height, capped/centered grid) — reverted at the
+  user's request, who wants the *content* itself to grow to fill the space rather than
+  the panel shrinking to fit the content; unresolved pending design feedback from their
+  course lecturer (see Outstanding) → Personal Projects and CV given About's
+  pixel-corner panel treatment (transparent section, inset gutter, pixel-card border) →
+  Work/Personal's scroll interaction reworked repeatedly as the new Personal panel kept
+  conflicting with Work's existing freeze-and-cover effect (cutoff bug → freeze dropped
+  for a plain transparent Personal → freeze restored with an opaque backdrop behind the
+  panel, confirmed against a user mockup → reverted at explicit request back to a plain
+  full-bleed Personal → panel reapplied, freeze dropped again → Work's mechanism finally
+  redesigned to push itself off-screen via a capped transform instead of relying on
+  Personal to cover it, letting Personal stay fully transparent with zero conflict) →
+  Work's freeze anchor moved from nav-height to viewport-center ("settle in the middle"
+  before getting pushed off) → the freeze/release transition lerp-smoothed to fix a
+  "hitting a wall" scroll judder.
 - Reference designs are for *flow/behavior* inspiration only, not literal visual copying
   (e.g. midu.design was referenced for the scroll-parallax feel, not its actual layout;
   viclopez.art was referenced for the scroll-stacking cards' "next section covers the
@@ -961,15 +1148,12 @@ blend-mode elements, even though the cursor itself is gone.
   centered tile on hover) is built and working; the actual copy meant to sit on top of it
   hasn't been added yet.
 - The persistent-swirl treatment (see "Persistent swirl background" above) now covers
-  Hero, About, and Work — About via its inset `.about__pin` panel, Work via per-tile
-  blue pixel-corner panes on `.work-tile` rather than one single inset panel (the
-  carousel itself stays full-bleed/edge-to-edge on purpose). Personal, CV, and Contact
-  still use the original full-bleed opaque section design (their own `background-color`,
-  plus Personal's upward-cast `box-shadow` cover cue). If this gets extended further,
-  each section will need its own version of the transparent-background treatment (or a
-  shared component extracted from the existing CSS), and Personal's `box-shadow` will
-  likely need the same removal treatment `.about`/`.work` already got, for the same
-  "seam across what should be unbroken" reason.
+  Hero, About, Work, Personal, and CV — About/Personal/CV via matching inset panels
+  (`.about__pin`/`.personal__pin`/`.cv__pin`, see "Personal Projects and CV panels"),
+  Work via per-tile blue pixel-corner panes on `.work-tile` rather than one single
+  inset panel (the carousel itself stays full-bleed/edge-to-edge on purpose). Only
+  Contact still uses the original full-bleed opaque section design. If extended there
+  too, it'll need its own version of the transparent-background treatment.
 - Hero text's fade-out point (`aboutFadeScrollY` in `js/main.js`) is tuned to the
   *midpoint* of `.about`'s scroll range, chosen for a comfortable margin rather than
   pixel-perfect alignment with when About's panel actually stops covering the frozen
@@ -981,11 +1165,29 @@ blend-mode elements, even though the cursor itself is gone.
   phone — the user should give it a real test when convenient.
 - About panel colours (`#2e3537` panel, `#1f2426` border/portrait-shadow) are, like the
   panel colour before them, an explicit trial ahead of a full sitewide colour-scheme
-  pass — not a considered final choice, same caveat as ever. The swirl's own teal-gray
-  palette and the particle sparkles' three colours (see "Persistent swirl background"
-  and "Particle sparkles" above) are similarly a direct match to one reference
-  screenshot, not necessarily the final sitewide direction.
+  pass — not a considered final choice, same caveat as ever. Personal/CV's panels reuse
+  these same two colours (see "Personal Projects and CV panels" above), so a future
+  colour-scheme pass will need to update all three together, not just About. The
+  swirl's own teal-gray palette and the particle sparkles' three colours (see
+  "Persistent swirl background" and "Particle sparkles" above) are similarly a direct
+  match to one reference screenshot, not necessarily the final sitewide direction.
 - The About panel's pixel-card border (see "About panel" above and gotcha #14) is fairly
   thin (6px/4.25px radius) and low-contrast by explicit colour choice — confirm it's
   still visible enough if the panel or swirl colours change again, since a lighter panel
   or different border colour could make it read differently than intended.
+- **About panel reads as sparse/"boilerplate" on a normal wide desktop monitor** — the
+  near-full-height panel (`.about__pin`'s `min-height: calc(100vh - ...)`) plus the
+  short placeholder copy leaves large empty space above/below and to the right of the
+  content once the viewport is wider than roughly the preview pane this was mostly
+  built and checked in (see "Architecture notes" intro and the caching gotcha's general
+  "verify in a real browser" caveat — this is the same class of issue, a layout that
+  looks right in the tool's narrower Browser pane but not on the user's actual monitor).
+  A fix was prototyped — dropping the forced `100vh`-based height so the panel hugs its
+  own content, and capping/centering `.about__grid`'s width instead of letting it
+  stretch full-bleed — and confirmed to look right at 1920×1080 and 2560×1080, but was
+  reverted at the user's explicit request: they'd rather the *content* (portrait size,
+  copy, maybe additional elements) grow to fill the panel than have the panel shrink to
+  fit sparse placeholder content, and want to check with their course lecturer for
+  design direction first. Next step, whenever that's resolved, is almost certainly
+  scaling up/adding to `.about__portrait-frame`, `.about__quote`, and `.about__copy p`
+  rather than touching `.about__pin`'s height or `.about__grid`'s width again.
