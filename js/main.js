@@ -40,19 +40,217 @@ primaryNav.querySelectorAll('a').forEach((link) => {
 // (its own ramp: near-black -> dark navy -> this light blue), giving
 // the lighter end of the palette real presence without touching the
 // dark contrast or the icy blueLight highlight either side of it.
+//
+// TRIAL (this commit): retuned a fourth time to match a Balatro
+// screenshot's dark smoky background, using four colours the user
+// colour-picked directly from that screenshot across its brightness
+// range (111a1b darkest, 162222, 1a2325, 2b383b lightest) — a dark
+// teal-gray, not a neutral gray or a blue. Both ramps reuse those
+// same four picked values (redLight/blueLight both = the lightest
+// pick) so the blend still reads as one cohesive tone; only
+// `highlight` is extrapolated lighter along the same teal-gray
+// direction, since the shader needs something brighter than the
+// lightest ramp stop for speckle detail. The previous cohesive-blue
+// palette above is the one to `git revert` back to if this doesn't
+// land.
+// contrast dropped from the shader's default 2.2 to 1.3 alongside the
+// palette trial above: the shader clamps its noise-driven light/dark
+// mix after scaling it by uContrast, so anything past a threshold
+// clips to pure dark or pure highlight rather than blending — at 2.2
+// that threshold clips over half the canvas, reading as separate
+// "light patches" and "dark patches" instead of one evenly-mixed
+// swirl. 1.3 clips only the extreme tails, so most of the canvas
+// blends continuously across the palette instead.
+//
+// gloss raised from the shader's default 1.2 to 1.8: `highlight` is a
+// separate specular sparkle added on top of the base ramp
+// (col += uHighlight * spec * uGloss in the shader), not part of the
+// dark/mid/light blend above — gloss is the only exposed multiplier
+// on it, so this makes the existing icy highlight flecks read more
+// strongly without changing how much of the canvas they cover.
+//
+// speed dropped from the shader's default 0.5, first to 0.3, then to
+// 0.1: it's a pure motion-rate multiplier (rotation drift, flow warp,
+// detail turbulence all scale by uSpeed, nothing else does), so this
+// only slows the animation down — doesn't touch the palette/contrast/
+// shape tuning above. Per feedback that the swirl read a little too
+// fast/"sea sicky" for an ambient background, then still too quick at
+// 0.3 — wanted a slower, calmer drift while still visibly moving, not
+// fully static. (An initial "juddery" report at 0.3 turned out to be
+// an unrelated first-launch hitch, not a real perf issue — no
+// resolutionScale change needed here.)
 const siteSwirlEl = document.querySelector('.site-swirl');
 if (siteSwirlEl && typeof SwirlBackground !== 'undefined') {
   new SwirlBackground({
     container: siteSwirlEl,
     balance: 0.72,
     settle: 0.3,
+    contrast: 1.3,
+    gloss: 1.8,
+    speed: 0.1,
     resolutionScale: 0.4,
     colours: {
-      redDark: '#040c14', redMid: '#123a5c', redLight: '#60a3d8',
-      blueDark: '#0a1f30', blueMid: '#2f7fc4', blueLight: '#a8def5',
-      highlight: '#eaf6ff'
+      redDark: '#162222', redMid: '#1a2325', redLight: '#2b383b',
+      blueDark: '#111a1b', blueMid: '#162222', blueLight: '#2b383b',
+      highlight: '#4a5c5f'
     }
   });
+}
+
+// -----------------------------------------
+// Site-wide particle sparkles — small drifting, rotating squares over
+// the swirl, per a Balatro reference screenshot. Plain 2D canvas, not
+// WebGL like the swirl above — squares filled via fillRect are cheap
+// per-pixel, so this needs none of the resolutionScale-style perf
+// tuning the swirl does. Colours are the three picked directly off
+// that reference: f1f6f2 (near-white), d6b88b (warm tan/gold), 88c7c5
+// (cyan-teal). Each particle gets its own random size, drift velocity,
+// rotation speed, and twinkle phase so they don't all move in lockstep
+// — that variation is what reads as "floating debris" rather than a
+// uniform grid or a single repeating animation.
+// -----------------------------------------
+const siteParticlesEl = document.querySelector('.site-particles');
+if (siteParticlesEl) {
+  const particleCanvas = document.createElement('canvas');
+  particleCanvas.style.cssText = 'position:absolute; inset:0; width:100%; height:100%; display:block;';
+  siteParticlesEl.appendChild(particleCanvas);
+  const particleCtx = particleCanvas.getContext('2d');
+
+  const PARTICLE_COLOURS = ['#f1f6f2', '#d6b88b', '#88c7c5'];
+  const PARTICLE_COUNT = 35; // lowered from an initial 55, felt too packed-in
+  const particleDpr = Math.min(window.devicePixelRatio || 1, 2);
+  let particles = [];
+
+  function resizeParticleCanvas() {
+    particleCanvas.width = window.innerWidth * particleDpr;
+    particleCanvas.height = window.innerHeight * particleDpr;
+  }
+
+  function makeParticle() {
+    const size = 2 + Math.random() * 5; // 2-7px squares
+    // px/s drift — ambient, not a directed "wind". Bumped to ±17.5
+    // (from an initial ±4) on a "too static" complaint, then reverted
+    // straight back to ±4 once that turned out to read as too much
+    // simultaneous motion — the original slow drift was actually the
+    // right "static but floaty" feel, it was the brightness (below)
+    // that needed fixing, not the speed.
+    const speedX = (Math.random() - 0.5) * 8;
+    const speedY = (Math.random() - 0.5) * 8;
+    const speedMag = Math.hypot(speedX, speedY) || 0.0001;
+    return {
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * window.innerHeight,
+      size,
+      colour: PARTICLE_COLOURS[Math.floor(Math.random() * PARTICLE_COLOURS.length)],
+      speedX,
+      speedY,
+      // Unit heading, precomputed once — a particle's velocity (and
+      // so its direction) never changes after spawn, so there's no
+      // need to re-derive this every frame. Used below to trail the
+      // chromatic-aberration ghosts behind the particle's own motion,
+      // not just at a fixed offset.
+      dirX: speedX / speedMag,
+      dirY: speedY / speedMag,
+      rotation: Math.random() * Math.PI * 2,
+      rotationSpeed: (Math.random() - 0.5) * 0.8, // rad/s
+      twinklePhase: Math.random() * Math.PI * 2,
+      twinkleSpeed: 0.4 + Math.random() * 1.1,
+      // Raised from an initial 0.35-0.85 range — combined with the
+      // twinkle dimming below, that made most particles read as dim/
+      // faded most of the time rather than bright like the reference.
+      baseOpacity: 0.6 + Math.random() * 0.4
+    };
+  }
+
+  function initParticles() {
+    particles = Array.from({ length: PARTICLE_COUNT }, makeParticle);
+  }
+
+  let lastParticleT = performance.now();
+  function animateParticles(t) {
+    const dt = Math.min((t - lastParticleT) / 1000, 0.05);
+    lastParticleT = t;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+
+    particleCtx.setTransform(particleDpr, 0, 0, particleDpr, 0, 0);
+    particleCtx.clearRect(0, 0, w, h);
+
+    particles.forEach((p) => {
+      p.x += p.speedX * dt;
+      p.y += p.speedY * dt;
+      p.rotation += p.rotationSpeed * dt;
+      p.twinklePhase += p.twinkleSpeed * dt;
+
+      // Wrap around edges with a margin so squares don't visibly pop
+      // in/out right at the viewport boundary.
+      const margin = p.size * 4;
+      if (p.x < -margin) p.x = w + margin;
+      if (p.x > w + margin) p.x = -margin;
+      if (p.y < -margin) p.y = h + margin;
+      if (p.y > h + margin) p.y = -margin;
+
+      const twinkle = 0.5 + 0.5 * Math.sin(p.twinklePhase);
+      // Floor raised from 0.4 to 0.7 (of baseOpacity) — the old range
+      // let twinkle dim particles down too far too often, compounding
+      // with the baseOpacity fix above to look duller than intended.
+      const alpha = p.baseOpacity * (0.7 + 0.3 * twinkle);
+
+      // Trailing chromatic-aberration fringe — same "red one way, blue
+      // the other way" channel-split idea as the swirl's own
+      // uAberration post-process (see swirl-background.js), but
+      // approximated with two opaque offset copies rather than true
+      // per-channel sampling (canvas 2D has no cheap equivalent).
+      // Two earlier attempts didn't read as clean aberration: fully
+      // offset ghosts (1.1x/1.8x of size) looked like three separate
+      // dots, and semi-transparent additive ghosts on top of that
+      // (0.3x/0.54x offset) looked like a smudgy blur instead of a
+      // crisp fringe. Fix: draw the red/blue ghosts fully OPAQUE,
+      // *underneath* the equally-opaque main square, at a small fixed
+      // offset — same "peek from behind" trick as the About panel's
+      // border (see CLAUDE.md gotcha #14) — so the main square covers
+      // most of both ghosts and only a thin, crisp sliver peeks out on
+      // the trailing edge. All three squares share the same
+      // translate+rotate transform (the ghost offset is expressed in
+      // the rotated local frame, not world space) so the main square
+      // always cleanly covers the ghosts regardless of the particle's
+      // current spin — offsetting only in world space would leave an
+      // irregular, only-sometimes-covered sliver as the particle
+      // rotates independently of its (fixed) direction of travel.
+      const cosR = Math.cos(-p.rotation);
+      const sinR = Math.sin(-p.rotation);
+      const localDirX = p.dirX * cosR - p.dirY * sinR;
+      const localDirY = p.dirX * sinR + p.dirY * cosR;
+
+      particleCtx.save();
+      particleCtx.translate(p.x, p.y);
+      particleCtx.rotate(p.rotation);
+      particleCtx.globalAlpha = alpha;
+      particleCtx.fillStyle = '#ff3b3b';
+      particleCtx.fillRect(-localDirX * 0.7 - p.size / 2, -localDirY * 0.7 - p.size / 2, p.size, p.size);
+      particleCtx.fillStyle = '#3bb8ff';
+      particleCtx.fillRect(-localDirX * 1.3 - p.size / 2, -localDirY * 1.3 - p.size / 2, p.size, p.size);
+      // Subtle bloom via shadowBlur — a native canvas glow, much
+      // cheaper than a real blur pass over a separate buffer, applied
+      // only to this final main-square fill (not the fringe above)
+      // so the fringe stays crisp and only the glow around it is
+      // soft. Cost scales with blur radius × shape count, and both
+      // are small here (55 tiny squares, ~1.5x their own size), so
+      // this shouldn't be a meaningful performance hit.
+      particleCtx.shadowColor = p.colour;
+      particleCtx.shadowBlur = p.size * 1.5;
+      particleCtx.fillStyle = p.colour;
+      particleCtx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+      particleCtx.restore();
+    });
+
+    requestAnimationFrame(animateParticles);
+  }
+
+  resizeParticleCanvas();
+  initParticles();
+  window.addEventListener('resize', resizeParticleCanvas);
+  requestAnimationFrame(animateParticles);
 }
 
 // -----------------------------------------

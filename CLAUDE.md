@@ -11,8 +11,9 @@ no build tooling, no framework, no dependencies beyond Google Fonts.
 - `css/style.css` — all styles, single file, organized in commented blocks matching the
   HTML sections top to bottom.
 - `js/main.js` — mobile nav toggle, hero parallax, Work carousel, the site-wide swirl
-  background (see below). No libraries. (No longer has a custom cursor — built, then
-  removed by explicit request; see "Custom cursor (built, then removed)" below.)
+  background and particle sparkles (see below). No libraries. (No longer has a custom
+  cursor — built, then removed by explicit request; see "Custom cursor (built, then
+  removed)" below.)
 - `assets/` — exists with `background/`, `cv/`, `icons/`, `images/` subfolders (flat
   categories, not nested per-content-type — there's no `work/`/`personal/` split inside
   `images/`).
@@ -218,24 +219,48 @@ over the fixed layer with zero extra effort. Personal/CV/Contact still have thei
 original opaque backgrounds, so the swirl doesn't show through them (yet — see
 Outstanding).
 
-The shader's default red/blue "marble" palette was first retuned in the `swirlOptions`
-passed into the `SwirlBackground` constructor to a warm red/black ramp matching the
-site's original hero-blob palette and the section-heading glow, instead of introducing
-blue — then retuned a second time, later, to a dark-navy / steel-blue / icy-highlight
-ramp matching a reference photo the user supplied, explicitly *introducing* blue this
-time. Both of the shader's colour "families" (`redDark`/`redMid`/`redLight` and
-`blueDark`/`blueMid`/`blueLight` — just the shader's own generic internal names for its
-two blend ramps, not a literal red-vs-blue split) are blue tones now, so the marble
-blend reads as one cohesive blue rather than two competing hues; `balance`/`settle`/
-`resolutionScale` were left untouched both times — only the palette changed, not the
-shape or motion of the swirl.
+The shader's default red/blue "marble" palette went through several retunes before
+landing on the current one. First, a warm red/black ramp matching the site's original
+hero-blob palette and the section-heading glow, instead of introducing blue. Then a
+dark-navy / steel-blue / icy-highlight ramp matching a reference photo the user
+supplied, explicitly *introducing* blue. Then `redLight` alone, from `#3f7fad` to
+`#60a3d8`, on feedback that the swirl had plenty of dark/navy and mid-blue but not much
+distinctly *lighter* blue (the old value sat at nearly the same luminance as `blueMid`,
+leaving a gap before `blueLight`'s icy highlight).
 
-`redLight` was retuned a third time, from `#3f7fad` to `#60a3d8`, on feedback that the
-swirl had plenty of dark/navy and plenty of mid-blue but not much distinctly *lighter*
-blue. The old value sat almost exactly at the same luminance as `blueMid` (`#2f7fc4`),
-so there was a big gap between the mid-tones and `blueLight`'s icy pale highlight with
-nothing in between; `#60a3d8` fills that gap (its own ramp runs near-black → dark navy
-→ this light blue) without touching the darks or the icy highlight either side of it.
+**Current palette: a dark teal-gray, not blue, matched directly to a Balatro screenshot's
+smoky background.** Per an explicit request to match that reference "exactly," the user
+colour-picked four values straight off the screenshot across its brightness range —
+`#111a1b` (darkest), `#162222`, `#1a2325`, `#2b383b` (lightest) — and both of the
+shader's colour "families" (`redDark`/`redMid`/`redLight` and
+`blueDark`/`blueMid`/`blueLight`, just its own generic internal names for its two blend
+ramps, not a literal red-vs-blue split) reuse those same four picked values (both
+`redLight`/`blueLight` = the lightest pick), so the blend still reads as one cohesive
+tone rather than two competing hues. `highlight` (`#4a5c5f`) is the one extrapolated
+value — lighter than the lightest pick, along the same teal-gray direction, since the
+shader needs something brighter than the ramp itself for specular speckle detail (see
+`gloss` below). `balance`/`settle`/`resolutionScale` are untouched from their prior
+tuning — only the palette itself changed here, not the shape or motion of the swirl.
+
+Three more shader options are now overridden from their defaults, all added alongside
+this palette trial:
+- **`contrast`: `2.2` (default) → `1.3`.** The shader clamps its noise-driven light/dark
+  mix after scaling it by this value — at the default, over half the canvas clips to
+  pure dark or pure highlight rather than blending, reading as separate "light patches"
+  and "dark patches" instead of one evenly-mixed swirl (exactly what got reported as
+  "not an even spread"). `1.3` clips only the extreme tails, so most of the canvas
+  blends continuously.
+- **`gloss`: `1.2` (default) → `1.8`.** `highlight` is a separate specular sparkle
+  added on top of the base ramp (`col += uHighlight * spec * uGloss` in the shader),
+  not part of the dark/mid/light blend above — `gloss` is the only exposed multiplier
+  on it, raised so the icy highlight flecks read more strongly, per a request for "a
+  bit more of our icy highlights."
+- **`speed`: `0.5` (default) → `0.1`** (by way of `0.3`). Pure motion-rate multiplier —
+  rotation drift, flow warp, and detail turbulence all scale by it, nothing else does —
+  slowed twice on feedback that the swirl felt too fast/"sea sicky" for an ambient
+  background, even after the first cut to `0.3`. An initial "juddery" report at `0.3`
+  turned out to be an unrelated first-launch hitch, not a real performance problem — no
+  `resolutionScale` change was needed to fix it.
 
 `resolutionScale` (currently `0.4`) renders the canvas at a fraction of its
 actual displayed size — the shader is fragment-heavy, so this is a real, significant
@@ -243,9 +268,12 @@ GPU-cost win (a straight `scale²` reduction in pixels computed per frame), and 
 the shader samples with `gl.LINEAR` filtering, the upscale reads as a deliberately
 soft, chunky, slightly-low-res look (reference: Balatro's card-shader backgrounds)
 rather than jagged pixelation. Tune this one number to trade sharpness for performance
-in either direction. `filter: brightness(0.5) saturate(1.1)` on `.site-swirl` itself
-further darkens the shader's own output to sit closer to the site's near-black theme
-(the shader's raw output alone reads too pale/cream against it).
+in either direction. `.site-swirl`'s own `filter` used to also carry
+`brightness(0.5)` (later `0.8`) to darken the shader's raw output for the site's
+near-black theme — dropped entirely (now just `filter: saturate(1.1)`) once the
+palette above was matched directly off a reference screenshot at its own true
+brightness; stacking a brightness filter on top of already-correct colours was just
+darkening them a second time past the actual target.
 
 **CRT scanlines (sitewide).** `.site-scanlines` sits right next to `.site-swirl` in
 both the CSS and the DOM (same `position: fixed; z-index: -1`, placed *after*
@@ -255,6 +283,55 @@ multiply`, low opacity (`0.18`), adapted from `assets/background/example-usage.h
 `.crt` recipe but dialed back so it reads as a faint texture, not an overt effect. Pure
 CSS, no JS. Originally hero-only (`.hero__scanlines`), moved sitewide alongside the
 swirl for the same reason the swirl itself went sitewide.
+
+**Particle sparkles (sitewide).** `.site-particles` (`css/style.css`) is the third fixed
+`z-index: -1` body-level layer, same recipe as `.site-swirl`/`.site-scanlines` but
+placed *last* in the DOM so it paints on top of both — specifically so `.site-scanlines`'
+own `mix-blend-mode: multiply` (which only darkens whatever's *underneath* it in paint
+order) doesn't dim the sparkles. Unlike `.site-swirl`, this is a plain 2D canvas built
+directly in `js/main.js` (not the vendored WebGL `SwirlBackground` class, and not in
+`assets/background/` — it's site-specific code, not a vendored dependency) — `fillRect`
+squares are cheap enough per-pixel that it needs none of the WebGL shader's
+`resolutionScale`-style performance tuning. Built per a Balatro reference screenshot's
+floating debris effect: small squares, `PARTICLE_COUNT = 35` (down from an initial `55`,
+felt too packed-in), each 2–7px, drifting at its own randomized velocity (±4px/s — was
+briefly bumped to ±17.5px/s on a "too static" complaint, then reverted straight back
+once that read as too much simultaneous motion; the original slow drift was already the
+right "static but floaty" feel), rotating at its own randomized rate, and twinkling via
+a sine-wave opacity pulse — all randomized per-particle so they don't move in lockstep.
+Colours are three exact values colour-picked off the reference screenshot: `#f1f6f2`
+(near-white), `#d6b88b` (warm tan/gold), `#88c7c5` (cyan-teal), one assigned per
+particle at random. `baseOpacity` (`0.6`–`1.0`) and the twinkle's opacity floor (never
+below 70% of `baseOpacity`) were both raised from lower initial ranges once the
+particles read as too dim/faded most of the time to look as bright as the reference.
+
+Two more effects layer on top of the base square, both went through failed attempts
+before landing:
+- **Trailing chromatic-aberration fringe**, echoing `.site-swirl`'s own `uAberration`
+  post-process (see "Persistent swirl background" above) — red offset one way, blue
+  the other, along the particle's fixed heading (`dirX`/`dirY`, computed once at spawn
+  since a particle's velocity never changes) rather than radiating from screen center.
+  Canvas 2D has no cheap true per-channel sampling, so it's approximated with two
+  small opaque squares. First attempt offset them far enough to sit clearly apart from
+  the main square (read as three separate dots, not a fringe); second attempt made them
+  semi-transparent and closer together with additive (`lighter`) blending (read as a
+  smudgy blur, not a clean edge). **Fix: draw the red/blue copies fully opaque
+  *underneath* the equally-opaque main square**, at a small offset (currently `0.7`/
+  `1.3` — pulled in from an initial `1.4`/`2.6` per feedback that it trailed off too
+  far) — same "peek from behind" trick as the About panel's border (gotcha #14): the
+  main square covers most of both ghosts, leaving only a thin, crisp sliver on the
+  trailing edge. All three squares share one `translate`+`rotate` transform, with the
+  ghost offset expressed in that *rotated local frame* (`localDirX`/`localDirY`, the
+  world-space heading rotated by `-p.rotation`) rather than world space — otherwise the
+  main square's own independent spin would only sometimes line up to cover the
+  axis-aligned ghosts underneath, leaving an irregular sliver instead of a consistent
+  one.
+- **Subtle bloom** via `shadowBlur`/`shadowColor` (`p.size * 1.5` radius) on the main
+  square's fill only — a native canvas glow, much cheaper than a real blur pass over a
+  separate buffer, which is why it was fine to add despite the general "watch
+  performance" caution that came with the request. Deliberately *not* applied to the
+  fringe squares above it, so the fringe stays crisp and only the glow around the whole
+  particle is soft.
 
 **Mix-blend-mode text inversion depends on `.hero__pin`, not the text itself, having
 `mix-blend-mode: difference`.** `.hero__name`/`role`/`tagline` are plain white text
@@ -271,25 +348,54 @@ alone. See gotcha #10 before "fixing" this back the other way; it was tested
 extensively and the isolation-based theory was wrong.
 
 **About panel.** `.about__pin` used to be a scroll-freeze wrapper (see "Scroll-stacking
-cards" above for why that was dropped) and still carries no background or `clip-path`
-of its own — just `position: relative`/`min-height` now (see the shadow paragraph below
-for why the background stays off it regardless). The panel's actual visible surface is
-`.about__grid`: it carries the solid
-`background-color`, the pixel-corner `clip-path`, and the padding that briefly lived on
-`.about__pin` instead. `.about__pin` is `display: flex` with `align-items` left at its
-default (`stretch`), so `.about__grid` stretches to fill `.about__pin`'s full height
-rather than shrink-wrapping its own (much shorter) content; `.about__pin` itself carries
+cards" above for why that was dropped). **Current architecture — note this has drifted
+from an earlier version of this doc that put the background/clip-path on `.about__grid`
+instead; that got reverted back at some point without the doc catching up, so trust
+this version over any memory of the old one.** `.about__pin` itself is the panel's
+actual visible surface: it carries the solid `background-color`, the pixel-corner
+`clip-path`, and the padding. `.about__grid` (a plain in-flow child) is layout-only —
+`width: 100%`, `display: grid`, no background or clip-path of its own. `.about__pin` is
+`display: flex; align-items: center`, so `.about__grid` sits centered at its own
+(content) height inside `.about__pin`'s box; `.about__pin` carries
 `min-height: calc(100vh - var(--nav-height) - var(--space-lg))` so the panel reads as a
 near-full-page card instead of a small box floating in a mostly-empty section.
-`align-content: center` on `.about__grid` recenters its content vertically within that
-now-stretched height, replacing the centering `.about__pin`'s old `align-items: center`
-used to provide. `margin-inline: clamp(16px, 4vw, 72px)` (tighter than an earlier
-`clamp(24px, 8vw, 140px)`) insets the panel from `.about`'s own transparent edges so the
-persistent swirl still shows as a side gutter, just a narrower one than the first pass.
-`.about` itself still has no `background-color`/`box-shadow` of its own — see the
-original reasoning below about the seam that created against the now-continuous
-hero/About background; that part hasn't changed. Only About has this panel treatment so
-far; Work/Personal/CV are unchanged (see Outstanding).
+`margin-inline: clamp(16px, 4vw, 72px)` insets the panel from `.about`'s own transparent
+edges so the persistent swirl still shows as a side gutter. `.about` itself has no
+`background-color` of its own — see the original reasoning below about the seam that
+created against the now-continuous hero/About background — but as of the pixel-card
+border trial below, it *does* now carry a `filter`. Only About has this panel treatment
+so far; Work has its own per-tile version (see Work carousel below); Personal/CV are
+unchanged (see Outstanding).
+
+**About panel border — lives on `.about`, not `.about__pin`, because of a clip-path/
+filter ordering bug.** A pixel-stepped border was added to match a Balatro reference
+card's outlined style, at the user's chosen colour (`#1f2426`, same family as the
+portrait shadow below). A plain CSS `border`/`outline` won't work here — both draw
+along the element's rectangular border box, which `.about__pin`'s own `clip-path` then
+cuts down to the pixel-staircase shape, clipping the border away right at each stepped
+corner. `filter: drop-shadow(...)` was used instead, since each `drop-shadow` duplicates
+the element's actual rendered (already-clipped) alpha silhouette and offsets it, tracing
+the staircase corners instead of the rectangle.
+
+The first attempt put this `filter` directly on `.about__pin` — and it was **completely
+invisible**, even at an unmissable diagnostic magenta, confirmed in the user's real
+Chrome (not just this tool's Browser pane, which — per gotcha #13 — wrongly appeared to
+show it working and cannot be trusted here). Root cause: **`clip-path` is applied
+*after* `filter` in the rendering order, on the same element.** A `drop-shadow`'s bleed
+extends beyond the element's original box, but if that same element also has a
+`clip-path`, the clip-path then clips the *filtered* result back down to (approximately)
+the original unclipped shape — silently removing the shadow's peeking sliver entirely.
+This is the same underlying lesson as gotcha #12 (clip-path clips an element's whole
+painted output, not just its own background) applied to `filter` instead of a
+pseudo-element child; see gotcha #14 for the full writeup. **Fix: host the `filter` on
+`.about` instead** — `.about__pin`'s plain, clip-path-free parent section — so nothing
+clips the shadow bleed before it reaches the screen. Eight `drop-shadow`s (four axis +
+four diagonal, diagonals scaled by `1/√2` so every copy sits the same radius from the
+silhouette) currently at a 6px/4.25px radius (halved once from an initial 12px/8.5px,
+per feedback, after the placement fix was confirmed working) stack into a uniform
+outline that traces `.about__pin`'s staircase corners reasonably well — though at this
+width relative to the corner-cut scale, it reads more like a gently rounded corner than
+a crisp staircase replica.
 
 Corner shape is still a hand-built pixel-staircase `clip-path` (`--pixel-corner-step`,
 currently `6px` × 9 cells per corner) for Balatro-style blocky corners instead of a
@@ -313,23 +419,35 @@ looked right:
    produces a curved silhouette instead of a diagonal one — this is the version live now.
 
 **About panel color and shadow — an explicit trial, not the final look.** The panel's
-`background-color` (`#3d6989`, on `.about__grid`) is a placeholder ahead of a full
-sitewide colour-scheme pass, picked — along with the About text-shadow color `#102245`
-below — purely to sit reasonably against the swirl's own newly-blue palette (see
-"Persistent swirl background" above), not as a considered final choice. A hard offset
-*panel* shadow (a solid `#102245` copy of the panel's own pixel-corner shape, offset
-behind and to the lower-left — the same "sticker" idea as the About-portrait shadow
-below) was built and made to render correctly: `.about__pin` had to stay
-background/`clip-path`-free specifically so a `::before` shadow pseudo-element could sit
-behind `.about__grid`'s background instead of in front of it (a negative `z-index` child
-does not automatically paint behind its *own* parent's background — see gotcha #11,
-which is exactly what broke the first attempt at this). Despite rendering correctly by
-every DOM-level check, it was reverted at the user's request after still looking wrong
-in their real browser — never root-caused, and muddied further by the in-tool
-screenshot testing that session turning out to be independently unreliable at that same
-scrolled position (see gotcha #13). **The panel itself currently has no shadow.** If
-this is revisited, re-read gotchas #11 and #12 first, and verify in a browser tab the
-user can actually see, not just this tool's screenshot capture.
+`background-color` (currently `#2e3537`, on `.about__pin` — see the architecture note
+above) is a placeholder ahead of a full sitewide colour-scheme pass. It was originally
+`#3d6989`, picked — along with the About text-shadow color `#102245` below — to sit
+against the swirl's *old* blue palette; both were retuned to the current dark
+charcoal/teal values (`#2e3537` panel, `#1f2426` portrait shadow + border) once the
+swirl itself moved to its teal-gray Balatro-match palette (see "Persistent swirl
+background" above), so the panel reads as part of the same tonal family instead of
+clashing with it. The two colours were also *briefly* swapped with each other (panel
+→ `#1f2426`, border/shadow → `#2e3537`) on request, then reverted back to this
+assignment shortly after — if asked to try that swap again, it's a straightforward
+value exchange between `.about__pin`'s `background-color`, `.about`'s border `filter`,
+and `.about__portrait::before`'s `background-color`.
+
+An earlier hard offset *panel* shadow (a solid `#102245` copy of the panel's own
+pixel-corner shape, offset behind and to the lower-left — the same "sticker" idea as the
+About-portrait shadow below) was built and made to render correctly: at the time,
+`.about__pin` was background/`clip-path`-free specifically so a `::before` shadow
+pseudo-element could sit behind `.about__grid`'s background instead of in front of it (a
+negative `z-index` child does not automatically paint behind its *own* parent's
+background — see gotcha #11, which is exactly what broke the first attempt at this).
+Despite rendering correctly by every DOM-level check, it was reverted at the user's
+request after still looking wrong in their real browser — never root-caused, and
+muddied further by the in-tool screenshot testing that session turning out to be
+independently unreliable at that same scrolled position (see gotcha #13). **The panel
+itself currently has no drop-shadow of its own** (though it does now have the pixel-card
+border described above, which is a different effect built later and unrelated to this
+reverted attempt). If a panel shadow is revisited, re-read gotchas #11, #12, and #14
+first, and verify in a browser tab the user can actually see, not just this tool's
+screenshot capture.
 
 **About copy — replaced the "About" heading with a quote-style layout, per a reference
 image.** `.about__copy` no longer opens with `<h2 class="section-heading">About</h2>`;
@@ -371,8 +489,9 @@ before picking a number, since "more pixels" is genuinely ambiguous between the 
 `max-width` is `460px` (up from an initial `360px`), with no border (removed per
 request) — just the image, clipped straight to the pixel-circle shape.
 
-The portrait *does* carry the hard offset shadow (`#102245`, offset left/down) that the
-panel itself lost above — successfully this time. It lives on
+The portrait *does* carry the hard offset shadow (currently `#1f2426`, offset left/down
+— originally `#102245`, retuned alongside the panel colour, see above) that the panel
+itself lost above — successfully this time. It lives on
 `.about__portrait::before`, not on `.about__portrait-frame::before`:
 `.about__portrait-frame` has its own `clip-path` (the pixel circle), and `clip-path`
 doesn't just shape an element's own background — it clips everything painted for that
@@ -735,6 +854,33 @@ blend-mode elements, even though the cursor itself is gone.
     caveat already applies to scroll-linked *effects* — this is the same caveat applied
     to the *screenshot capture itself*, not just to what's being tested.
 
+14. **`clip-path` clips an element's own `filter` output too, not just its background —
+    a `filter: drop-shadow` on a `clip-path`'d element gets its own bleed clipped away.**
+    Distinct from (but the same root cause as) gotcha #12: that one is about clip-path
+    clipping a *descendant's* offset content; this one is about clip-path clipping the
+    *same element's own* filter effect. Hit building the About panel's pixel-card
+    border (see "About panel" above): `filter: drop-shadow(...)` was first put directly
+    on `.about__pin`, which also carries the panel's pixel-staircase `clip-path`. Result:
+    completely invisible, confirmed in a real browser even at an unmissable diagnostic
+    magenta — despite this tool's own Browser-pane screenshots appearing to show it
+    rendering correctly (don't trust those for this combination; see gotcha #13, and
+    note this is now a *second* confirmed instance of this tool's screenshots being
+    wrong about a clip-path-adjacent shadow/filter effect specifically — treat any
+    "it renders here" result for this category as unverified until confirmed in the
+    user's actual browser). Root cause: per the CSS rendering model, `filter` is applied
+    to an element first, generating a result that can extend beyond the element's own
+    box (that's how `drop-shadow` bleeds outside it); `clip-path` is then applied
+    *after*, to that same result — and since the clip-path's geometry is defined
+    relative to the element's original (unfiltered) box, it clips the filter's bleed
+    straight back off, leaving only the shape that was already inside the clip-path to
+    begin with. **Fix: host the `filter` on a clip-path-free ancestor instead of the
+    clip-path'd element itself** — same "move it up one level, off the clipped element"
+    pattern gotcha #12 already established for shadow pseudo-elements, just applied to a
+    `filter` property instead. For the About border this meant moving the `filter` from
+    `.about__pin` to `.about` (its plain parent section, no clip-path of its own). If
+    any future effect needs a `filter` (drop-shadow or otherwise) on an element that also
+    has `clip-path`, expect this exact failure and use the same fix.
+
 ## Conventions
 
 - Work section-by-section, checking in before moving to the next section — that's how
@@ -765,7 +911,19 @@ blend-mode elements, even though the cursor itself is gone.
   heading replaced with a centered `- work -` label matching About's → Kodak/Twix/
   Norwich Theatre Royal given real (temp) photos → carousel reordered Zermatt-first →
   site header lightened → swirl given a third palette retune (`#60a3d8` light blue) →
-  Work carousel given touch swipe support).
+  Work carousel given touch swipe support → swirl retuned a fourth time to a dark
+  teal-gray Balatro-match palette (colour-picked directly off a reference screenshot)
+  with contrast lowered and gloss raised to match → swirl's brightness filter removed
+  entirely once the palette was colour-accurate on its own → About panel and portrait
+  shadow colours retuned to match the new teal-gray swirl → About panel given a
+  pixel-card border via `drop-shadow` (first broke silently due to a clip-path/filter
+  ordering bug — see gotcha #14 — then fixed by hosting the filter on `.about` instead
+  of `.about__pin`) → panel/border colours briefly swapped then reverted back → swirl
+  motion speed slowed twice for a calmer ambient feel → sitewide particle sparkles
+  added (Balatro-style drifting squares, colours picked off the same reference), then
+  tuned through several rounds — speed bumped then reverted, brightness raised,
+  chromatic-aberration fringe attempted twice before landing on the opaque-underneath
+  technique, fringe offset tightened, bloom added, particle count reduced).
 - Reference designs are for *flow/behavior* inspiration only, not literal visual copying
   (e.g. midu.design was referenced for the scroll-parallax feel, not its actual layout;
   viclopez.art was referenced for the scroll-stacking cards' "next section covers the
@@ -821,3 +979,13 @@ blend-mode elements, even though the cursor itself is gone.
 - Work carousel touch swipe (see "Work carousel" above) was verified with synthetic
   touch events and a mobile-sized viewport in this tool, not yet confirmed on an actual
   phone — the user should give it a real test when convenient.
+- About panel colours (`#2e3537` panel, `#1f2426` border/portrait-shadow) are, like the
+  panel colour before them, an explicit trial ahead of a full sitewide colour-scheme
+  pass — not a considered final choice, same caveat as ever. The swirl's own teal-gray
+  palette and the particle sparkles' three colours (see "Persistent swirl background"
+  and "Particle sparkles" above) are similarly a direct match to one reference
+  screenshot, not necessarily the final sitewide direction.
+- The About panel's pixel-card border (see "About panel" above and gotcha #14) is fairly
+  thin (6px/4.25px radius) and low-contrast by explicit colour choice — confirm it's
+  still visible enough if the panel or swirl colours change again, since a lighter panel
+  or different border colour could make it read differently than intended.

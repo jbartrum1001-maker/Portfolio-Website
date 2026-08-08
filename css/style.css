@@ -112,7 +112,12 @@ body {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  filter: brightness(0.5) saturate(1.1);
+  /* brightness dropped entirely (was 0.5, briefly 0.8) alongside the
+     teal-gray Balatro-match palette trial in js/main.js — those
+     colours were colour-picked directly off the reference screenshot
+     at full brightness, so any further brightness filter was just
+     darkening them past the actual target. saturate(1.1) kept. */
+  filter: saturate(1.1);
 }
 
 /* CRT scanlines — from assets/background/example-usage.html's .crt
@@ -140,6 +145,22 @@ body {
       rgba(0, 0, 0, 0.35) 2px, rgba(0, 0, 0, 0.35) 3px
     ),
     radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.4) 130%);
+}
+
+/* Drifting particle sparkles — small rotating squares over the swirl,
+   per a Balatro reference screenshot. Plain 2D canvas (js/main.js),
+   not WebGL like .site-swirl — cheap enough per-pixel that it needs
+   no resolutionScale-style perf tuning. Same fixed/z-index: -1 layer
+   as .site-swirl/.site-scanlines, but placed LAST in the DOM (after
+   .site-scanlines) so it paints on top of both — keeps the sparkles
+   crisp instead of getting dimmed by .site-scanlines' own
+   mix-blend-mode: multiply, which only darkens whatever's underneath
+   it in paint order. */
+.site-particles {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
 }
 
 /* -----------------------------------------
@@ -483,6 +504,41 @@ body {
      dark band across what should be one uninterrupted background. */
   position: relative;
   padding-block: var(--space-md);
+  /* Pixel-card border for .about__pin's panel, per a Balatro reference
+     screenshot's outlined card style — lives HERE, on the plain
+     clip-path-free parent section, not on .about__pin itself. That's
+     not optional placement: filter is applied to an element BEFORE
+     its own clip-path clips the result (same ordering that gotcha #12
+     in CLAUDE.md already documents for shadows-under-clip-path), so a
+     drop-shadow on .about__pin gets its own bleed clipped straight
+     back off by .about__pin's own pixel-staircase clip-path — this is
+     what silently broke the border entirely on the first attempt —
+     confirmed invisible in a real browser even at an unmissable
+     diagnostic magenta, despite this tool's own Browser-pane
+     screenshots (wrongly) appearing to show it working; don't trust
+     those screenshots alone for clip-path'd shadow/filter effects,
+     same caveat as gotcha #13. Hosting the filter on .about instead —
+     which has no clip-path of its own — lets the shadow bleed reach
+     the screen; re-tested at diagnostic magenta again here and
+     confirmed visible in a real browser this time before settling
+     back on the real #1f2426 (briefly swapped with the panel colour
+     and reverted back shortly after). Four axis + four diagonal offsets
+     (diagonals at 1/√2 of the axis radius) stack into a uniform
+     outline that traces .about__pin's staircase corners reasonably
+     well, since each drop-shadow duplicates the actual rendered
+     (already-clipped) alpha silhouette rather than the rectangular
+     border box a plain CSS border/outline would use. Halved from an
+     initial 12px/8.5px radius to 6px/4.25px per feedback once the
+     border was confirmed visible and working. */
+  filter:
+    drop-shadow(6px 0 0 #1f2426)
+    drop-shadow(-6px 0 0 #1f2426)
+    drop-shadow(0 6px 0 #1f2426)
+    drop-shadow(0 -6px 0 #1f2426)
+    drop-shadow(4.25px 4.25px 0 #1f2426)
+    drop-shadow(-4.25px 4.25px 0 #1f2426)
+    drop-shadow(4.25px -4.25px 0 #1f2426)
+    drop-shadow(-4.25px -4.25px 0 #1f2426);
 }
 
 .about__pin {
@@ -523,8 +579,10 @@ body {
   margin-inline: clamp(16px, 4vw, 72px);
   padding: var(--space-xl) var(--space-lg);
   /* Trial panel color, not the sitewide --color-bg — a placeholder
-     ahead of a full colour scheme pass later. */
-  background-color: #3d6989;
+     ahead of a full colour scheme pass later. Briefly swapped with
+     the border/portrait-shadow colour (#1f2426) and reverted back to
+     this shortly after, per explicit request. */
+  background-color: #2e3537;
   clip-path: polygon(
     0 calc(var(--pixel-corner-step) * 9),
     calc(var(--pixel-corner-step) * 1) calc(var(--pixel-corner-step) * 9),
@@ -642,7 +700,7 @@ body {
   inset: 0;
   z-index: -1;
   transform: translate(-10px, 10px);
-  background-color: #102245;
+  background-color: #1f2426;
   clip-path: polygon(
     50.0% 0.0%,
     51.389% 0.0%,
